@@ -3,10 +3,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Search, RotateCcw, Filter, Calendar, User } from 'lucide-react';
+import { Search, RotateCcw, Filter, Calendar, User, CreditCard } from 'lucide-react';
 
 interface SearchFormProps {
-  onSearch: (dob: string, name: string) => void;
+  onSearch: (dob: string, name: string, voterNo: string) => void;
   onReset: () => void;
   isLoading?: boolean;
 }
@@ -14,15 +14,17 @@ interface SearchFormProps {
 export function SearchForm({ onSearch, onReset, isLoading }: SearchFormProps) {
   const [dob, setDob] = useState('');
   const [name, setName] = useState('');
+  const [voterNo, setVoterNo] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSearch(dob, name);
+    onSearch(dob, name, voterNo);
   };
 
   const handleReset = () => {
     setDob('');
     setName('');
+    setVoterNo('');
     onReset();
   };
 
@@ -36,6 +38,21 @@ export function SearchForm({ onSearch, onReset, isLoading }: SearchFormProps) {
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="voterNo" className="flex items-center gap-2 text-foreground">
+              <CreditCard className="w-4 h-4" />
+              ভোটার নং
+            </Label>
+            <Input
+              id="voterNo"
+              type="text"
+              placeholder="ভোটার নম্বর লিখুন..."
+              value={voterNo}
+              onChange={(e) => setVoterNo(e.target.value)}
+              className="bg-background"
+            />
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="dob" className="flex items-center gap-2 text-foreground">
               <Calendar className="w-4 h-4" />

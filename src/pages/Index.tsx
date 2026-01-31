@@ -13,9 +13,9 @@ const Index = () => {
   const [hasSearched, setHasSearched] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleSearch = async (dob: string, name: string) => {
-    if (!dob && !name) {
-      setError('অনুগ্রহ করে জন্ম তারিখ অথবা নাম লিখুন');
+  const handleSearch = async (dob: string, name: string, voterNo: string) => {
+    if (!dob && !name && !voterNo) {
+      setError('অনুগ্রহ করে ভোটার নং, জন্ম তারিখ অথবা নাম লিখুন');
       return;
     }
 
@@ -25,6 +25,10 @@ const Index = () => {
 
     try {
       let query = supabase.from('voters').select('*');
+
+      if (voterNo) {
+        query = query.ilike('voter_no', `%${voterNo}%`);
+      }
 
       if (dob) {
         query = query.eq('dob', dob);
