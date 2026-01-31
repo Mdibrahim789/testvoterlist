@@ -54,7 +54,7 @@ export function CandidatesTable({ candidates, isLoading }: CandidatesTableProps)
                 <TableHead>দাখিলকারীর নাম</TableHead>
                 <TableHead className="w-[60px]">ছবি</TableHead>
                 <TableHead>রাজনৈতিক দল/স্বতন্ত্র</TableHead>
-                <TableHead>নির্বাচনী প্রতীক</TableHead>
+                <TableHead className="w-[80px]">নির্বাচনী প্রতীক</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -73,7 +73,17 @@ export function CandidatesTable({ candidates, isLoading }: CandidatesTableProps)
                     </Avatar>
                   </TableCell>
                   <TableCell>{candidate.party_name}</TableCell>
-                  <TableCell>{candidate.symbol}</TableCell>
+                  <TableCell>
+                    {candidate.symbol ? (
+                      <img 
+                        src={candidate.symbol} 
+                        alt="প্রতীক" 
+                        className="w-12 h-12 object-contain"
+                      />
+                    ) : (
+                      <span className="text-muted-foreground">-</span>
+                    )}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
