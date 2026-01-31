@@ -239,10 +239,10 @@ export function CandidateManagement({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="symbol">নির্বাচনী প্রতীক</Label>
+              <Label htmlFor="symbol">নির্বাচনী প্রতীক (ছবির URL)</Label>
               <Input
                 id="symbol"
-                placeholder="প্রতীকের নাম"
+                placeholder="https://example.com/symbol.png"
                 value={candidateForm.symbol}
                 onChange={(e) => setCandidateForm({ ...candidateForm, symbol: e.target.value })}
               />
@@ -298,7 +298,7 @@ export function CandidateManagement({
                     <TableHead>নাম</TableHead>
                     <TableHead className="w-[60px]">ছবি</TableHead>
                     <TableHead>দল</TableHead>
-                    <TableHead>প্রতীক</TableHead>
+                    <TableHead className="w-[80px]">প্রতীক</TableHead>
                     <TableHead className="text-right">অ্যাকশন</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -316,7 +316,17 @@ export function CandidateManagement({
                         </Avatar>
                       </TableCell>
                       <TableCell>{candidate.party_name}</TableCell>
-                      <TableCell>{candidate.symbol}</TableCell>
+                      <TableCell>
+                        {candidate.symbol ? (
+                          <img 
+                            src={candidate.symbol} 
+                            alt="প্রতীক" 
+                            className="w-10 h-10 object-contain"
+                          />
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
                           <Button size="sm" variant="outline" onClick={() => handleEditCandidate(candidate)}>
@@ -369,8 +379,9 @@ export function CandidateManagement({
                 />
               </div>
               <div className="space-y-2">
-                <Label>প্রতীক</Label>
+                <Label>প্রতীক (ছবির URL)</Label>
                 <Input
+                  placeholder="https://example.com/symbol.png"
                   value={editForm.symbol || ''}
                   onChange={(e) => setEditForm({ ...editForm, symbol: e.target.value })}
                 />
