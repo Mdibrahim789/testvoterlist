@@ -38,6 +38,12 @@ const Index = () => {
     executeSearch(query);
   };
 
+  // Convert English digits to Bangla digits
+  const toBanglaDigits = (str: string) => {
+    const banglaDigits = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
+    return str.replace(/[0-9]/g, (d) => banglaDigits[parseInt(d)]);
+  };
+
   const handleNameDobSearch = (dob: string, name: string) => {
     if (!dob && !name) {
       setError('অনুগ্রহ করে জন্ম তারিখ অথবা নাম লিখুন');
@@ -47,13 +53,15 @@ const Index = () => {
     let query = supabase.from('voters').select('*');
 
     if (dob) {
-      // Convert DD-MM-YYYY to D/MM/YYYY format (matching database format)
-      // Replace hyphens with slashes and remove leading zeros from day
-      const formattedDob = dob
+      // Convert to database format:
+      // 1. Convert English digits to Bangla
+      // 2. Replace hyphens with slashes
+      // 3. Remove leading zero from day
+      let formattedDob = toBanglaDigits(dob)
         .replace(/-/g, '/')
-        .replace(/^0/, ''); // Remove leading zero from day
+        .replace(/^০/, ''); // Remove leading zero from day
       
-      // Use ILIKE for flexible matching (handles both D/MM and DD/MM formats)
+      // Use ILIKE for flexible matching
       query = query.ilike('dob', `%${formattedDob}%`);
     }
 
