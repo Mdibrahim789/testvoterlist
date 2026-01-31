@@ -23,16 +23,14 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
+import { DataUploadCard } from '@/components/DataUploadCard';
 import {
   Vote,
-  Upload,
   LogOut,
   Search,
   Edit,
   Trash2,
-  Plus,
   AlertCircle,
-  FileJson,
   Users,
   Clock,
 } from 'lucide-react';
@@ -47,7 +45,6 @@ export default function AdminDashboard() {
   const [searchTerm, setSearchTerm] = useState('');
   const [editingVoter, setEditingVoter] = useState<Voter | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
 
   // Form state for editing
   const [formData, setFormData] = useState({
@@ -95,67 +92,6 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setIsUploading(true);
-
-    try {
-      const text = await file.text();
-      let data: VoterInsert[] = [];
-
-      if (file.name.endsWith('.json')) {
-        data = JSON.parse(text);
-      } else if (file.name.endsWith('.csv')) {
-        const lines = text.split('\n');
-        const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
-        
-        for (let i = 1; i < lines.length; i++) {
-          if (!lines[i].trim()) continue;
-          const values = lines[i].split(',');
-          const row: any = {};
-          headers.forEach((header, index) => {
-            row[header] = values[index]?.trim() || '';
-          });
-          data.push({
-            sl: row.sl ? parseInt(row.sl) : null,
-            voter_no: row.voter_no || '',
-            name_bn: row.name_bn || row.name || '',
-            father_husband: row.father_husband || '',
-            dob: row.dob || '',
-            address: row.address || '',
-            area: row.area || '',
-          });
-        }
-      }
-
-      if (data.length === 0) {
-        throw new Error('No valid data found');
-      }
-
-      const { error } = await supabase.from('voters').insert(data);
-
-      if (error) throw error;
-
-      toast({
-        title: 'সফল হয়েছে!',
-        description: `${data.length}টি ভোটার যোগ করা হয়েছে`,
-      });
-
-      fetchVoters();
-    } catch (err) {
-      console.error('Upload error:', err);
-      toast({
-        title: 'আপলোড ব্যর্থ',
-        description: 'ফাইল আপলোড করতে সমস্যা হয়েছে',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsUploading(false);
-      e.target.value = '';
-    }
-  };
 
   const handleEdit = (voter: Voter) => {
     setEditingVoter(voter);
@@ -351,32 +287,7 @@ export default function AdminDashboard() {
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <Upload className="w-5 h-5" />
-                  ডাটা আপলোড
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Label htmlFor="file-upload" className="cursor-pointer">
-                  <div className="border-2 border-dashed border-border rounded-lg p-4 text-center hover:border-primary transition-colors">
-                    <FileJson className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
-                    <p className="text-sm text-muted-foreground">
-                      {isUploading ? 'আপলোড হচ্ছে...' : 'CSV/JSON ফাইল আপলোড করুন'}
-                    </p>
-                  </div>
-                  <Input
-                    id="file-upload"
-                    type="file"
-                    accept=".csv,.json"
-                    className="hidden"
-                    onChange={handleFileUpload}
-                    disabled={isUploading}
-                  />
-                </Label>
-              </CardContent>
-            </Card>
+            <DataUploadCard onUploadSuccess={fetchVoters} />
           </div>
 
           {/* Search & Table */}
