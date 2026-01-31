@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { SearchForm } from '@/components/SearchForm';
+import { VoterNoSearch } from '@/components/VoterNoSearch';
 import { SearchInstructions } from '@/components/SearchInstructions';
 import { VoterCard } from '@/components/VoterCard';
 import { supabase } from '@/integrations/supabase/client';
 import { Voter } from '@/types/database';
 import { Vote, Search, AlertCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { Separator } from '@/components/ui/separator';
 
 const Index = () => {
   const [voters, setVoters] = useState<Voter[]>([]);
@@ -13,32 +15,13 @@ const Index = () => {
   const [hasSearched, setHasSearched] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleSearch = async (dob: string, name: string, voterNo: string) => {
-    if (!dob && !name && !voterNo) {
-      setError('অনুগ্রহ করে ভোটার নং, জন্ম তারিখ অথবা নাম লিখুন');
-      return;
-    }
-
+  const executeSearch = async (queryBuilder: any) => {
     setIsLoading(true);
     setError(null);
     setHasSearched(true);
 
     try {
-      let query = supabase.from('voters').select('*');
-
-      if (voterNo) {
-        query = query.ilike('voter_no', `%${voterNo}%`);
-      }
-
-      if (dob) {
-        query = query.eq('dob', dob);
-      }
-
-      if (name) {
-        query = query.ilike('name_bn', `%${name}%`);
-      }
-
-      const { data, error: queryError } = await query.limit(50);
+      const { data, error: queryError } = await queryBuilder.limit(50);
 
       if (queryError) throw queryError;
 
@@ -50,6 +33,30 @@ const Index = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleVoterNoSearch = (voterNo: string) => {
+    const query = supabase.from('voters').select('*').ilike('voter_no', `%${voterNo}%`);
+    executeSearch(query);
+  };
+
+  const handleNameDobSearch = (dob: string, name: string) => {
+    if (!dob && !name) {
+      setError('অনুগ্রহ করে জন্ম তারিখ অথবা নাম লিখুন');
+      return;
+    }
+
+    let query = supabase.from('voters').select('*');
+
+    if (dob) {
+      query = query.eq('dob', dob);
+    }
+
+    if (name) {
+      query = query.ilike('name_bn', `%${name}%`);
+    }
+
+    executeSearch(query);
   };
 
   const handleReset = () => {
@@ -78,10 +85,23 @@ const Index = () => {
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-6 max-w-lg">
-        <div className="space-y-6">
-          {/* Search Form */}
+        <div className="space-y-4">
+          {/* Voter No Search */}
+          <VoterNoSearch 
+            onSearch={handleVoterNoSearch} 
+            isLoading={isLoading}
+          />
+
+          {/* Divider */}
+          <div className="flex items-center gap-4">
+            <Separator className="flex-1" />
+            <span className="text-muted-foreground text-sm font-medium">অথবা</span>
+            <Separator className="flex-1" />
+          </div>
+
+          {/* Name/DOB Search Form */}
           <SearchForm 
-            onSearch={handleSearch} 
+            onSearch={handleNameDobSearch} 
             onReset={handleReset}
             isLoading={isLoading}
           />
