@@ -14,6 +14,25 @@ interface DataUploadCardProps {
   onUploadSuccess: () => void;
 }
 
+// Convert Bangla digits to English digits
+const toEnglishDigits = (str: string): string => {
+  const banglaDigits = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
+  let result = str;
+  banglaDigits.forEach((bd, index) => {
+    result = result.replace(new RegExp(bd, 'g'), index.toString());
+  });
+  return result;
+};
+
+// Parse serial number (handles both Bangla and English digits)
+const parseSerial = (value: string | number | undefined): number | null => {
+  if (value === undefined || value === null || value === '') return null;
+  const strValue = String(value).trim();
+  const englishValue = toEnglishDigits(strValue);
+  const parsed = parseInt(englishValue, 10);
+  return isNaN(parsed) ? null : parsed;
+};
+
 export function DataUploadCard({ onUploadSuccess }: DataUploadCardProps) {
   const { toast } = useToast();
   const [isUploading, setIsUploading] = useState(false);
@@ -36,7 +55,7 @@ export function DataUploadCard({ onUploadSuccess }: DataUploadCardProps) {
       
       if (row.voter_no || row.name_bn || row.name) {
         data.push({
-          sl: row.sl ? parseInt(row.sl) : null,
+          sl: parseSerial(row.sl),
           voter_no: row.voter_no || '',
           name_bn: row.name_bn || row.name || '',
           father_husband: row.father_husband || '',
@@ -54,7 +73,7 @@ export function DataUploadCard({ onUploadSuccess }: DataUploadCardProps) {
       const parsed = JSON.parse(text);
       const items = Array.isArray(parsed) ? parsed : [parsed];
       return items.map((item: any) => ({
-        sl: item.sl ? parseInt(item.sl) : null,
+        sl: parseSerial(item.sl),
         voter_no: item.voter_no || '',
         name_bn: item.name_bn || item.name || '',
         father_husband: item.father_husband || '',
