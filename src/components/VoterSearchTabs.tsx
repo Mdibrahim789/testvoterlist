@@ -104,11 +104,24 @@ export function VoterSearchTabs({
         {activeTab === 'nameDob' && (
           <form onSubmit={handleNameDobSubmit} className="space-y-4">
             <Input
-              type="date"
-              placeholder="জন্ম তারিখ"
+              type="text"
+              placeholder="জন্ম তারিখ (DD-MM-YYYY)"
               value={dob}
-              onChange={(e) => setDob(e.target.value)}
-              className="border-0 border-b-2 border-border rounded-none bg-transparent text-lg py-3 focus:border-primary focus-visible:ring-0 focus-visible:ring-offset-0"
+              onChange={(e) => {
+                let value = e.target.value.replace(/[^0-9-]/g, '');
+                // Auto-add hyphen after day (2 digits) and month (5 chars = DD-MM)
+                if (value.length === 2 && !value.includes('-')) {
+                  value = value + '-';
+                } else if (value.length === 5 && value.charAt(2) === '-' && value.charAt(4) !== '-') {
+                  value = value.slice(0, 5) + '-' + value.slice(5);
+                }
+                // Limit to 10 chars (DD-MM-YYYY)
+                if (value.length <= 10) {
+                  setDob(value);
+                }
+              }}
+              maxLength={10}
+              className="border-0 border-b-2 border-border rounded-none bg-transparent text-lg py-3 focus:border-primary focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground/60"
             />
             <Input
               type="text"
