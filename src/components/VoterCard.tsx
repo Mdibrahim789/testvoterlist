@@ -1,5 +1,5 @@
 import { Card, CardContent } from '@/components/ui/card';
-import { User, Calendar, MapPin, CreditCard } from 'lucide-react';
+import { User, Calendar, MapPin, CreditCard, Hash } from 'lucide-react';
 import { Voter } from '@/types/database';
 
 interface VoterCardProps {
@@ -32,6 +32,13 @@ export function VoterCard({ voter }: VoterCardProps) {
         </div>
 
         <div className="grid gap-2 text-sm">
+          {voter.sl && (
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Hash className="w-4 h-4" />
+              <span>ক্রমিক নং: {voter.sl}</span>
+            </div>
+          )}
+
           {voter.dob && (
             <div className="flex items-center gap-2 text-muted-foreground">
               <Calendar className="w-4 h-4" />
