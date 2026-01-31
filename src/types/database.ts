@@ -57,3 +57,42 @@ export interface WardUnion {
   upazila_id: string;
   created_at: string;
 }
+
+// Constituency (আসন)
+export interface Constituency {
+  id: string;
+  name: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ConstituencyUpdate {
+  name?: string;
+}
+
+// Candidate (প্রার্থী)
+export interface Candidate {
+  id: string;
+  serial_no: number;
+  name: string;
+  photo_url: string | null;
+  party_name: string;
+  symbol: string;
+  created_at: string;
+}
+
+export interface CandidateInsert {
+  serial_no: number;
+  name: string;
+  photo_url?: string | null;
+  party_name: string;
+  symbol: string;
+}
+
+export interface CandidateUpdate {
+  serial_no?: number;
+  name?: string;
+  photo_url?: string | null;
+  party_name?: string;
+  symbol?: string;
+}

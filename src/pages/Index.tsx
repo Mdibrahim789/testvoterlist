@@ -2,6 +2,10 @@ import { useState } from 'react';
 import { VoterSearchTabs } from '@/components/VoterSearchTabs';
 import { SearchInstructions } from '@/components/SearchInstructions';
 import { VoterCard } from '@/components/VoterCard';
+import { ConstituencyCard } from '@/components/ConstituencyCard';
+import { CandidatesTable } from '@/components/CandidatesTable';
+import { useConstituency } from '@/hooks/useConstituency';
+import { useCandidates } from '@/hooks/useCandidates';
 import { supabase } from '@/integrations/supabase/client';
 import { Voter } from '@/types/database';
 import { Vote, Search, AlertCircle } from 'lucide-react';
@@ -12,6 +16,10 @@ const Index = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Constituency and Candidates data
+  const { constituency, isLoading: isConstituencyLoading } = useConstituency();
+  const { candidates, isLoading: isCandidatesLoading } = useCandidates();
 
   const executeSearch = async (queryBuilder: any) => {
     setIsLoading(true);
@@ -148,6 +156,15 @@ const Index = () => {
 
           {/* Instructions (show when no search performed) */}
           {!hasSearched && <SearchInstructions />}
+
+          {/* Constituency and Candidates Section */}
+          <div className="space-y-4 mt-6">
+            <ConstituencyCard name={constituency?.name || null} />
+            <CandidatesTable 
+              candidates={candidates} 
+              isLoading={isCandidatesLoading} 
+            />
+          </div>
         </div>
       </main>
 
