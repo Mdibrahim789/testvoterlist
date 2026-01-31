@@ -108,12 +108,19 @@ export function VoterSearchTabs({
               placeholder="জন্ম তারিখ (DD-MM-YYYY)"
               value={dob}
               onChange={(e) => {
-                let value = e.target.value.replace(/[^0-9-]/g, '');
+                // Allow both English (0-9) and Bangla (০-৯) numerals plus hyphen
+                let value = e.target.value.replace(/[^0-9০-৯-]/g, '');
                 // Auto-add hyphen after day (2 digits) and month (5 chars = DD-MM)
-                if (value.length === 2 && !value.includes('-')) {
+                const digitCount = value.replace(/-/g, '').length;
+                const hyphens = (value.match(/-/g) || []).length;
+                
+                if (digitCount === 2 && hyphens === 0) {
                   value = value + '-';
-                } else if (value.length === 5 && value.charAt(2) === '-' && value.charAt(4) !== '-') {
-                  value = value.slice(0, 5) + '-' + value.slice(5);
+                } else if (digitCount === 4 && hyphens === 1 && !value.endsWith('-')) {
+                  const parts = value.split('-');
+                  if (parts[1] && parts[1].length === 2) {
+                    value = value + '-';
+                  }
                 }
                 // Limit to 10 chars (DD-MM-YYYY)
                 if (value.length <= 10) {
