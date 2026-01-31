@@ -55,6 +55,7 @@ export default function AdminDashboard() {
   const { upazilas, wardsUnions, addUpazila, addWardUnion, getWardsForUpazila, refetch: refetchLocations } = useLocations();
 
   const [voters, setVoters] = useState<Voter[]>([]);
+  const [totalVoters, setTotalVoters] = useState(0);
   const [isLoadingVoters, setIsLoadingVoters] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [editingVoter, setEditingVoter] = useState<Voter | null>(null);
@@ -97,11 +98,21 @@ export default function AdminDashboard() {
   const fetchVoters = async () => {
     setIsLoadingVoters(true);
     try {
+      // Get total count
+      const { count, error: countError } = await supabase
+        .from('voters')
+        .select('*', { count: 'exact', head: true });
+      
+      if (!countError && count !== null) {
+        setTotalVoters(count);
+      }
+
+      // Get paginated data
       const { data, error } = await supabase
         .from('voters')
         .select('*')
         .order('created_at', { ascending: false })
-        .limit(100);
+        .limit(500);
 
       if (error) throw error;
       setVoters(data as Voter[] || []);
@@ -397,7 +408,12 @@ export default function AdminDashboard() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-3xl font-bold text-primary">{voters.length}</p>
+                <p className="text-3xl font-bold text-primary">{totalVoters}</p>
+                {totalVoters > 500 && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    (সর্বশেষ ৫০০টি দেখাচ্ছে)
+                  </p>
+                )}
               </CardContent>
             </Card>
 
