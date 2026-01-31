@@ -47,7 +47,14 @@ const Index = () => {
     let query = supabase.from('voters').select('*');
 
     if (dob) {
-      query = query.eq('dob', dob);
+      // Convert DD-MM-YYYY to D/MM/YYYY format (matching database format)
+      // Replace hyphens with slashes and remove leading zeros from day
+      const formattedDob = dob
+        .replace(/-/g, '/')
+        .replace(/^0/, ''); // Remove leading zero from day
+      
+      // Use ILIKE for flexible matching (handles both D/MM and DD/MM formats)
+      query = query.ilike('dob', `%${formattedDob}%`);
     }
 
     if (name) {
