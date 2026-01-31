@@ -1,13 +1,11 @@
 import { useState } from 'react';
-import { SearchForm } from '@/components/SearchForm';
-import { VoterNoSearch } from '@/components/VoterNoSearch';
+import { VoterSearchTabs } from '@/components/VoterSearchTabs';
 import { SearchInstructions } from '@/components/SearchInstructions';
 import { VoterCard } from '@/components/VoterCard';
 import { supabase } from '@/integrations/supabase/client';
 import { Voter } from '@/types/database';
 import { Vote, Search, AlertCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { Separator } from '@/components/ui/separator';
 
 const Index = () => {
   const [voters, setVoters] = useState<Voter[]>([]);
@@ -86,22 +84,10 @@ const Index = () => {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-6 max-w-lg">
         <div className="space-y-4">
-          {/* Voter No Search */}
-          <VoterNoSearch 
-            onSearch={handleVoterNoSearch} 
-            isLoading={isLoading}
-          />
-
-          {/* Divider */}
-          <div className="flex items-center gap-4">
-            <Separator className="flex-1" />
-            <span className="text-muted-foreground text-sm font-medium">অথবা</span>
-            <Separator className="flex-1" />
-          </div>
-
-          {/* Name/DOB Search Form */}
-          <SearchForm 
-            onSearch={handleNameDobSearch} 
+          {/* Tabbed Search */}
+          <VoterSearchTabs 
+            onVoterNoSearch={handleVoterNoSearch}
+            onNameDobSearch={handleNameDobSearch}
             onReset={handleReset}
             isLoading={isLoading}
           />
