@@ -7,11 +7,17 @@ import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { VoterInsert } from '@/types/database';
+import { VoterInsert, Upazila, WardUnion } from '@/types/database';
+import { LocationFilter } from '@/components/LocationFilter';
 import { Upload, FileJson, FileText, Plus, AlertCircle } from 'lucide-react';
 
 interface DataUploadCardProps {
   onUploadSuccess: () => void;
+  upazilas: Upazila[];
+  wardsUnions: WardUnion[];
+  onAddUpazila: (name: string) => Promise<Upazila>;
+  onAddWardUnion: (name: string, upazilaId: string) => Promise<WardUnion>;
+  getWardsForUpazila: (upazilaId: string) => WardUnion[];
 }
 
 // Convert Bangla digits to English digits
@@ -33,11 +39,30 @@ const parseSerial = (value: string | number | undefined): number | null => {
   return isNaN(parsed) ? null : parsed;
 };
 
-export function DataUploadCard({ onUploadSuccess }: DataUploadCardProps) {
+export function DataUploadCard({ 
+  onUploadSuccess,
+  upazilas,
+  wardsUnions,
+  onAddUpazila,
+  onAddWardUnion,
+  getWardsForUpazila,
+}: DataUploadCardProps) {
   const { toast } = useToast();
   const [isUploading, setIsUploading] = useState(false);
   const [textData, setTextData] = useState('');
   const [textFormat, setTextFormat] = useState<'csv' | 'json'>('csv');
+  const [selectedUpazila, setSelectedUpazila] = useState('all');
+  const [selectedWardUnion, setSelectedWardUnion] = useState('all');
+
+  const getLocationNames = () => {
+    const upazila = selectedUpazila !== 'all' 
+      ? upazilas.find(u => u.id === selectedUpazila)?.name || null 
+      : null;
+    const wardUnion = selectedWardUnion !== 'all'
+      ? wardsUnions.find(w => w.id === selectedWardUnion)?.name || null
+      : null;
+    return { upazila, wardUnion };
+  };
 
   const parseCSV = (text: string): VoterInsert[] => {
     const lines = text.split('\n').filter(line => line.trim());
@@ -45,6 +70,7 @@ export function DataUploadCard({ onUploadSuccess }: DataUploadCardProps) {
 
     const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
     const data: VoterInsert[] = [];
+    const { upazila, wardUnion } = getLocationNames();
 
     for (let i = 1; i < lines.length; i++) {
       const values = lines[i].split(',');
@@ -62,6 +88,8 @@ export function DataUploadCard({ onUploadSuccess }: DataUploadCardProps) {
           dob: row.dob || '',
           address: row.address || '',
           area: row.area || '',
+          upazila: upazila,
+          ward_union: wardUnion,
         });
       }
     }
@@ -69,6 +97,7 @@ export function DataUploadCard({ onUploadSuccess }: DataUploadCardProps) {
   };
 
   const parseJSON = (text: string): VoterInsert[] => {
+    const { upazila, wardUnion } = getLocationNames();
     try {
       const parsed = JSON.parse(text);
       const items = Array.isArray(parsed) ? parsed : [parsed];
@@ -80,6 +109,8 @@ export function DataUploadCard({ onUploadSuccess }: DataUploadCardProps) {
         dob: item.dob || '',
         address: item.address || '',
         area: item.area || '',
+        upazila: upazila,
+        ward_union: wardUnion,
       })).filter(v => v.voter_no || v.name_bn);
     } catch {
       return [];
@@ -185,7 +216,24 @@ export function DataUploadCard({ onUploadSuccess }: DataUploadCardProps) {
           ডাটা আপলোড
         </CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-4">
+        {/* Location Selectors */}
+        <div className="space-y-2">
+          <Label className="text-sm text-muted-foreground">আপলোডের এলাকা নির্বাচন করুন</Label>
+          <LocationFilter
+            upazilas={upazilas}
+            wardsUnions={wardsUnions}
+            selectedUpazila={selectedUpazila}
+            selectedWardUnion={selectedWardUnion}
+            onUpazilaChange={setSelectedUpazila}
+            onWardUnionChange={setSelectedWardUnion}
+            showAddButtons={true}
+            onAddUpazila={onAddUpazila}
+            onAddWardUnion={onAddWardUnion}
+            getWardsForUpazila={getWardsForUpazila}
+          />
+        </div>
+
         <Tabs defaultValue="file" className="w-full">
           <TabsList className="grid w-full grid-cols-2 mb-4">
             <TabsTrigger value="file" className="flex items-center gap-2">
@@ -256,7 +304,7 @@ export function DataUploadCard({ onUploadSuccess }: DataUploadCardProps) {
               }
               value={textData}
               onChange={(e) => setTextData(e.target.value)}
-              className="min-h-[150px] font-mono text-sm"
+              className="min-h-[120px] font-mono text-sm"
             />
 
             <div className="flex items-start gap-2 p-3 bg-muted rounded-lg">

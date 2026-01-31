@@ -2,11 +2,12 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Voter, VoterInsert } from '@/types/database';
+import { Voter } from '@/types/database';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Table,
   TableBody,
@@ -22,8 +23,20 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { DataUploadCard } from '@/components/DataUploadCard';
+import { LocationFilter } from '@/components/LocationFilter';
+import { useLocations } from '@/hooks/useLocations';
 import {
   Vote,
   LogOut,
@@ -39,12 +52,22 @@ export default function AdminDashboard() {
   const { user, role, signOut, isAdmin, isPendingAdmin, loading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { upazilas, wardsUnions, addUpazila, addWardUnion, getWardsForUpazila, refetch: refetchLocations } = useLocations();
 
   const [voters, setVoters] = useState<Voter[]>([]);
   const [isLoadingVoters, setIsLoadingVoters] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [editingVoter, setEditingVoter] = useState<Voter | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  
+  // Filter state
+  const [filterUpazila, setFilterUpazila] = useState('all');
+  const [filterWardUnion, setFilterWardUnion] = useState('all');
+  
+  // Bulk selection state
+  const [selectedVoters, setSelectedVoters] = useState<Set<string>>(new Set());
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [deleteMode, setDeleteMode] = useState<'selected' | 'area'>('selected');
 
   // Form state for editing
   const [formData, setFormData] = useState({
@@ -55,6 +78,8 @@ export default function AdminDashboard() {
     dob: '',
     address: '',
     area: '',
+    upazila: '',
+    ward_union: '',
   });
 
   useEffect(() => {
@@ -92,7 +117,6 @@ export default function AdminDashboard() {
     }
   };
 
-
   const handleEdit = (voter: Voter) => {
     setEditingVoter(voter);
     setFormData({
@@ -103,6 +127,8 @@ export default function AdminDashboard() {
       dob: voter.dob || '',
       address: voter.address || '',
       area: voter.area || '',
+      upazila: voter.upazila || '',
+      ward_union: voter.ward_union || '',
     });
     setIsEditDialogOpen(true);
   };
@@ -121,6 +147,8 @@ export default function AdminDashboard() {
           dob: formData.dob || null,
           address: formData.address || null,
           area: formData.area || null,
+          upazila: formData.upazila || null,
+          ward_union: formData.ward_union || null,
         })
         .eq('id', editingVoter.id);
 
@@ -170,16 +198,102 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleBulkDelete = async () => {
+    try {
+      if (deleteMode === 'selected') {
+        const { error } = await supabase
+          .from('voters')
+          .delete()
+          .in('id', Array.from(selectedVoters));
+
+        if (error) throw error;
+
+        toast({
+          title: 'মুছে ফেলা হয়েছে',
+          description: `${selectedVoters.size}টি ভোটার মুছে ফেলা হয়েছে`,
+        });
+      } else if (deleteMode === 'area') {
+        // Delete by area filter
+        let query = supabase.from('voters').delete();
+        
+        const selectedUpazilaName = filterUpazila !== 'all' 
+          ? upazilas.find(u => u.id === filterUpazila)?.name 
+          : null;
+        const selectedWardName = filterWardUnion !== 'all'
+          ? wardsUnions.find(w => w.id === filterWardUnion)?.name
+          : null;
+
+        if (selectedUpazilaName) {
+          query = query.eq('upazila', selectedUpazilaName);
+        }
+        if (selectedWardName) {
+          query = query.eq('ward_union', selectedWardName);
+        }
+
+        const { error } = await query;
+        if (error) throw error;
+
+        toast({
+          title: 'মুছে ফেলা হয়েছে',
+          description: 'এলাকার সব ভোটার মুছে ফেলা হয়েছে',
+        });
+      }
+
+      setSelectedVoters(new Set());
+      setIsDeleteDialogOpen(false);
+      fetchVoters();
+    } catch (err) {
+      console.error('Bulk delete error:', err);
+      toast({
+        title: 'সমস্যা হয়েছে',
+        description: 'মুছে ফেলতে সমস্যা হয়েছে',
+        variant: 'destructive',
+      });
+    }
+  };
+
   const handleLogout = async () => {
     await signOut();
     navigate('/admin');
   };
 
-  const filteredVoters = voters.filter(
-    (v) =>
-      v.name_bn.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      v.voter_no.includes(searchTerm)
-  );
+  const toggleSelectVoter = (voterId: string) => {
+    setSelectedVoters(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(voterId)) {
+        newSet.delete(voterId);
+      } else {
+        newSet.add(voterId);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedVoters.size === filteredVoters.length) {
+      setSelectedVoters(new Set());
+    } else {
+      setSelectedVoters(new Set(filteredVoters.map(v => v.id)));
+    }
+  };
+
+  // Apply filters
+  const filteredVoters = voters.filter((v) => {
+    const matchesSearch = v.name_bn.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      v.voter_no.includes(searchTerm);
+    
+    const selectedUpazilaName = filterUpazila !== 'all' 
+      ? upazilas.find(u => u.id === filterUpazila)?.name 
+      : null;
+    const selectedWardName = filterWardUnion !== 'all'
+      ? wardsUnions.find(w => w.id === filterWardUnion)?.name
+      : null;
+
+    const matchesUpazila = !selectedUpazilaName || v.upazila === selectedUpazilaName;
+    const matchesWard = !selectedWardName || v.ward_union === selectedWardName;
+
+    return matchesSearch && matchesUpazila && matchesWard;
+  });
 
   if (loading) {
     return (
@@ -287,25 +401,79 @@ export default function AdminDashboard() {
               </CardContent>
             </Card>
 
-            <DataUploadCard onUploadSuccess={fetchVoters} />
+            <DataUploadCard 
+              onUploadSuccess={() => {
+                fetchVoters();
+                refetchLocations();
+              }}
+              upazilas={upazilas}
+              wardsUnions={wardsUnions}
+              onAddUpazila={addUpazila}
+              onAddWardUnion={addWardUnion}
+              getWardsForUpazila={getWardsForUpazila}
+            />
           </div>
 
           {/* Search & Table */}
           <Card>
             <CardHeader>
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="w-5 h-5" />
-                  ভোটার তালিকা
-                </CardTitle>
-                <div className="relative w-full md:w-64">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input
-                    placeholder="নাম বা ভোটার নং দিয়ে খুঁজুন..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-9"
+              <div className="flex flex-col gap-4">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <CardTitle className="flex items-center gap-2">
+                    <Users className="w-5 h-5" />
+                    ভোটার তালিকা
+                  </CardTitle>
+                  <div className="relative w-full md:w-64">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      placeholder="নাম বা ভোটার নং দিয়ে খুঁজুন..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-9"
+                    />
+                  </div>
+                </div>
+                
+                {/* Filters and Bulk Actions */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <LocationFilter
+                    upazilas={upazilas}
+                    wardsUnions={wardsUnions}
+                    selectedUpazila={filterUpazila}
+                    selectedWardUnion={filterWardUnion}
+                    onUpazilaChange={setFilterUpazila}
+                    onWardUnionChange={setFilterWardUnion}
+                    getWardsForUpazila={getWardsForUpazila}
                   />
+                  
+                  <div className="flex gap-2">
+                    {selectedVoters.size > 0 && (
+                      <Button 
+                        variant="destructive" 
+                        size="sm"
+                        onClick={() => {
+                          setDeleteMode('selected');
+                          setIsDeleteDialogOpen(true);
+                        }}
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        মুছুন ({selectedVoters.size})
+                      </Button>
+                    )}
+                    {filterUpazila !== 'all' && (
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => {
+                          setDeleteMode('area');
+                          setIsDeleteDialogOpen(true);
+                        }}
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        এলাকার সব মুছুন
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </div>
             </CardHeader>
@@ -319,22 +487,34 @@ export default function AdminDashboard() {
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        <TableHead className="w-[50px]">
+                          <Checkbox
+                            checked={selectedVoters.size === filteredVoters.length && filteredVoters.length > 0}
+                            onCheckedChange={toggleSelectAll}
+                          />
+                        </TableHead>
                         <TableHead>ক্রমিক</TableHead>
                         <TableHead>নাম</TableHead>
                         <TableHead>ভোটার নং</TableHead>
-                        <TableHead>জন্ম তারিখ</TableHead>
-                        <TableHead>এলাকা</TableHead>
+                        <TableHead>উপজেলা</TableHead>
+                        <TableHead>ওয়ার্ড/ইউনিয়ন</TableHead>
                         <TableHead className="text-right">অ্যাকশন</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {filteredVoters.map((voter) => (
                         <TableRow key={voter.id}>
+                          <TableCell>
+                            <Checkbox
+                              checked={selectedVoters.has(voter.id)}
+                              onCheckedChange={() => toggleSelectVoter(voter.id)}
+                            />
+                          </TableCell>
                           <TableCell>{voter.sl || '-'}</TableCell>
                           <TableCell className="font-medium">{voter.name_bn}</TableCell>
                           <TableCell>{voter.voter_no}</TableCell>
-                          <TableCell>{voter.dob || '-'}</TableCell>
-                          <TableCell>{voter.area || '-'}</TableCell>
+                          <TableCell>{voter.upazila || '-'}</TableCell>
+                          <TableCell>{voter.ward_union || '-'}</TableCell>
                           <TableCell className="text-right">
                             <div className="flex justify-end gap-2">
                               <Button
@@ -421,6 +601,24 @@ export default function AdminDashboard() {
                 onChange={(e) => setFormData({ ...formData, address: e.target.value })}
               />
             </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-upazila">উপজেলা</Label>
+                <Input
+                  id="edit-upazila"
+                  value={formData.upazila}
+                  onChange={(e) => setFormData({ ...formData, upazila: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-ward">ওয়ার্ড/ইউনিয়ন</Label>
+                <Input
+                  id="edit-ward"
+                  value={formData.ward_union}
+                  onChange={(e) => setFormData({ ...formData, ward_union: e.target.value })}
+                />
+              </div>
+            </div>
             <div className="space-y-2">
               <Label htmlFor="edit-area">এলাকা</Label>
               <Input
@@ -438,6 +636,26 @@ export default function AdminDashboard() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Bulk Delete Confirmation Dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>মুছে ফেলতে চান?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteMode === 'selected' 
+                ? `${selectedVoters.size}টি ভোটার মুছে ফেলা হবে। এটি পূর্বাবস্থায় ফেরানো যাবে না।`
+                : 'এই এলাকার সব ভোটার মুছে ফেলা হবে। এটি পূর্বাবস্থায় ফেরানো যাবে না।'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>বাতিল</AlertDialogCancel>
+            <AlertDialogAction onClick={handleBulkDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              মুছে ফেলুন
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
