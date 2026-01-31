@@ -9,6 +9,8 @@ export interface Voter {
   dob: string | null;
   address: string | null;
   area: string | null;
+  upazila: string | null;
+  ward_union: string | null;
   created_at: string;
 }
 
@@ -27,6 +29,8 @@ export interface VoterInsert {
   dob?: string | null;
   address?: string | null;
   area?: string | null;
+  upazila?: string | null;
+  ward_union?: string | null;
 }
 
 export interface VoterUpdate {
@@ -37,4 +41,19 @@ export interface VoterUpdate {
   dob?: string | null;
   address?: string | null;
   area?: string | null;
+  upazila?: string | null;
+  ward_union?: string | null;
+}
+
+export interface Upazila {
+  id: string;
+  name: string;
+  created_at: string;
+}
+
+export interface WardUnion {
+  id: string;
+  name: string;
+  upazila_id: string;
+  created_at: string;
 }
