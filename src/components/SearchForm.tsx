@@ -3,10 +3,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Search, RotateCcw, Filter, Calendar, User, CreditCard } from 'lucide-react';
+import { Search, RotateCcw, Filter, Calendar, User } from 'lucide-react';
 
 interface SearchFormProps {
-  onSearch: (dob: string, name: string, voterNo: string) => void;
+  onSearch: (dob: string, name: string) => void;
   onReset: () => void;
   isLoading?: boolean;
 }
@@ -14,45 +14,28 @@ interface SearchFormProps {
 export function SearchForm({ onSearch, onReset, isLoading }: SearchFormProps) {
   const [dob, setDob] = useState('');
   const [name, setName] = useState('');
-  const [voterNo, setVoterNo] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSearch(dob, name, voterNo);
+    onSearch(dob, name);
   };
 
   const handleReset = () => {
     setDob('');
     setName('');
-    setVoterNo('');
     onReset();
   };
 
   return (
     <Card className="bg-white shadow-lg border-0">
       <CardHeader className="pb-4">
-        <CardTitle className="flex items-center gap-2 text-primary text-xl">
+        <CardTitle className="flex items-center gap-2 text-primary text-lg">
           <Filter className="w-5 h-5" />
-          ভোটার অনুসন্ধান
+          নাম/জন্ম তারিখ দিয়ে সার্চ
         </CardTitle>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="voterNo" className="flex items-center gap-2 text-foreground">
-              <CreditCard className="w-4 h-4" />
-              ভোটার নং
-            </Label>
-            <Input
-              id="voterNo"
-              type="text"
-              placeholder="ভোটার নম্বর লিখুন..."
-              value={voterNo}
-              onChange={(e) => setVoterNo(e.target.value)}
-              className="bg-background"
-            />
-          </div>
-
           <div className="space-y-2">
             <Label htmlFor="dob" className="flex items-center gap-2 text-foreground">
               <Calendar className="w-4 h-4" />
