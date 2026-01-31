@@ -14,9 +14,9 @@ export function useConstituency() {
         .from('constituency')
         .select('*')
         .limit(1)
-        .single();
+        .maybeSingle();
 
-      if (queryError && queryError.code !== 'PGRST116') {
+      if (queryError) {
         throw queryError;
       }
 
