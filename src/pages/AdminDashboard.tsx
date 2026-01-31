@@ -36,7 +36,10 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { DataUploadCard } from '@/components/DataUploadCard';
 import { LocationFilter } from '@/components/LocationFilter';
+import { CandidateManagement } from '@/components/CandidateManagement';
 import { useLocations } from '@/hooks/useLocations';
+import { useConstituency } from '@/hooks/useConstituency';
+import { useCandidates } from '@/hooks/useCandidates';
 import {
   Vote,
   LogOut,
@@ -46,6 +49,7 @@ import {
   AlertCircle,
   Users,
   Clock,
+  MapPin,
 } from 'lucide-react';
 
 export default function AdminDashboard() {
@@ -53,6 +57,10 @@ export default function AdminDashboard() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { upazilas, wardsUnions, addUpazila, addWardUnion, getWardsForUpazila, refetch: refetchLocations } = useLocations();
+  
+  // Constituency and Candidates
+  const { constituency, updateConstituency } = useConstituency();
+  const { candidates, isLoading: isCandidatesLoading, addCandidate, updateCandidate, deleteCandidate, deleteAllCandidates } = useCandidates();
 
   const [voters, setVoters] = useState<Voter[]>([]);
   const [totalVoters, setTotalVoters] = useState(0);
@@ -429,6 +437,28 @@ export default function AdminDashboard() {
               getWardsForUpazila={getWardsForUpazila}
             />
           </div>
+
+          {/* Constituency & Candidates Management */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <MapPin className="w-5 h-5" />
+                আসন ও প্রার্থী ব্যবস্থাপনা
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <CandidateManagement
+                constituencyName={constituency?.name || null}
+                candidates={candidates}
+                isLoading={isCandidatesLoading}
+                onUpdateConstituency={updateConstituency}
+                onAddCandidate={addCandidate}
+                onUpdateCandidate={updateCandidate}
+                onDeleteCandidate={deleteCandidate}
+                onDeleteAllCandidates={deleteAllCandidates}
+              />
+            </CardContent>
+          </Card>
 
           {/* Search & Table */}
           <Card>
