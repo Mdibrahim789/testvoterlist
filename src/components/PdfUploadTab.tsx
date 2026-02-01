@@ -79,7 +79,25 @@ export function PdfUploadTab({ upazila, wardUnion, onUploadSuccess }: PdfUploadT
       );
 
       if (fnError) {
-        throw new Error(fnError.message);
+         // supabase-js hides non-2xx JSON bodies behind fnError; try to surface the actual message
+         const anyErr = fnError as any;
+         const ctxBody = anyErr?.context?.body;
+         let message = fnError.message;
+
+         if (ctxBody) {
+           if (typeof ctxBody === 'string') {
+             try {
+               const parsed = JSON.parse(ctxBody);
+               message = parsed?.error || parsed?.message || message;
+             } catch {
+               message = ctxBody;
+             }
+           } else if (typeof ctxBody === 'object') {
+             message = ctxBody?.error || ctxBody?.message || message;
+           }
+         }
+
+         throw new Error(message);
       }
 
       if (data.error) {
