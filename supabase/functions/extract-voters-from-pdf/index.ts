@@ -42,9 +42,9 @@ serve(async (req) => {
 
 শুধুমাত্র JSON array রিটার্ন করো, অন্য কিছু না। যদি কোনো ভোটার না পাও, খালি array [] রিটার্ন করো।`;
 
-    // Call Gemini API directly
+    // Call Gemini API directly - using gemini-2.0-flash which is stable
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
       {
         method: 'POST',
         headers: {
