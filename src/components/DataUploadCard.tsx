@@ -9,7 +9,8 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { VoterInsert, Upazila, WardUnion } from '@/types/database';
 import { LocationFilter } from '@/components/LocationFilter';
-import { Upload, FileJson, FileText, Plus, AlertCircle } from 'lucide-react';
+import { Upload, FileJson, FileText, Plus, AlertCircle, Sparkles } from 'lucide-react';
+import { PdfUploadTab } from '@/components/PdfUploadTab';
 
 interface DataUploadCardProps {
   onUploadSuccess: () => void;
@@ -235,14 +236,18 @@ export function DataUploadCard({
         </div>
 
         <Tabs defaultValue="file" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 mb-4">
+          <TabsList className="grid w-full grid-cols-3 mb-4">
             <TabsTrigger value="file" className="flex items-center gap-2">
               <FileJson className="w-4 h-4" />
-              ফাইল আপলোড
+              ফাইল
             </TabsTrigger>
             <TabsTrigger value="text" className="flex items-center gap-2">
               <FileText className="w-4 h-4" />
-              টেক্সট ইনপুট
+              টেক্সট
+            </TabsTrigger>
+            <TabsTrigger value="pdf" className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4" />
+              PDF (AI)
             </TabsTrigger>
           </TabsList>
 
@@ -324,6 +329,14 @@ export function DataUploadCard({
               <Plus className="w-4 h-4 mr-2" />
               {isUploading ? 'আপলোড হচ্ছে...' : 'ডাটা যোগ করুন'}
             </Button>
+          </TabsContent>
+
+          <TabsContent value="pdf">
+            <PdfUploadTab
+              upazila={getLocationNames().upazila}
+              wardUnion={getLocationNames().wardUnion}
+              onUploadSuccess={onUploadSuccess}
+            />
           </TabsContent>
         </Tabs>
       </CardContent>

@@ -1,0 +1,2 @@
+[functions.extract-voters-from-pdf]
+verify_jwt = false
