@@ -141,31 +141,64 @@ serve(async (req) => {
       .sort((a, b) => scoreModelName(a) - scoreModelName(b))
       .slice(0, 12);
 
-    let response: Response | null = null;
+    const extractTextFromGeminiResponse = (payload: any): string => {
+      const parts = payload?.candidates?.[0]?.content?.parts;
+      if (!Array.isArray(parts)) return "";
+      return parts
+        .map((p: any) => (typeof p?.text === "string" ? p.text : ""))
+        .join("")
+        .trim();
+    };
+
     let lastErrorText = "";
+    let lastStatus: number | null = null;
     let usedModel: string | null = null;
+    let aiResponse: any | null = null;
+    let content = "";
+    let finishReason: string | null = null;
 
     for (const model of candidateModels) {
       usedModel = model;
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
 
-      response = await fetch(url, {
+      const resp = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(requestPayload),
       });
 
-      if (response.ok) break;
+      lastStatus = resp.status;
+      const respText = await resp.text();
 
-      lastErrorText = await response.text();
-      console.error("Gemini API error (model tried):", model, response.status, lastErrorText);
+      if (!resp.ok) {
+        lastErrorText = respText;
+        console.error("Gemini API error (model tried):", model, resp.status, lastErrorText);
+        // rate-limit/credits errors won't be fixed by trying other models
+        if (resp.status === 429) break;
+        continue;
+      }
+
+      // Success status, but still might not contain text (safety / max tokens / unexpected response)
+      try {
+        aiResponse = JSON.parse(respText);
+      } catch {
+        lastErrorText = respText.slice(0, 2000);
+        console.error("Gemini returned non-JSON despite 2xx:", model, lastErrorText);
+        continue;
+      }
+
+      finishReason = aiResponse?.candidates?.[0]?.finishReason
+        ? String(aiResponse.candidates[0].finishReason)
+        : null;
+
+      content = extractTextFromGeminiResponse(aiResponse);
+      if (content) break;
+
+      lastErrorText = `2xx but empty text. finishReason=${finishReason ?? "unknown"}`;
+      console.error("Gemini empty content (model tried):", model, lastErrorText);
     }
 
-    if (!response) {
-      return jsonResponse({ error: "Gemini API request failed to start", debugVersion: DEBUG_VERSION }, 500);
-    }
-
-    if (!response.ok) {
+    if (!content || !aiResponse) {
       // surface model discovery details so you can see what your key actually supports
       const discoveryDetails =
         listResult.ok
@@ -180,32 +213,27 @@ serve(async (req) => {
               listModelsErrorText: listResult.errorText?.slice(0, 2000),
             };
 
-      if (response.status === 429) {
+      if (lastStatus === 429) {
         return jsonResponse(
           { error: "Rate limit exceeded. অনুগ্রহ করে কিছুক্ষণ পর আবার চেষ্টা করুন।", debugVersion: DEBUG_VERSION },
           429,
         );
       }
 
+      const safety = aiResponse?.promptFeedback ?? aiResponse?.candidates?.[0]?.safetyRatings;
+      const reasonHint = finishReason ? ` (finishReason=${finishReason})` : "";
+
       return jsonResponse(
         {
-          error: "Gemini API error: " + (lastErrorText || "(no body)"),
+          error: "AI থেকে কোনো response পাওয়া যায়নি" + reasonHint,
+          lastError: lastErrorText?.slice(0, 2000) || undefined,
           triedModels: candidateModels,
           lastTriedModel: usedModel,
+          finishReason,
+          safety,
           debugVersion: DEBUG_VERSION,
           ...discoveryDetails,
         },
-        500,
-      );
-    }
-
-    const aiResponse = await response.json();
-    const content = aiResponse.candidates?.[0]?.content?.parts?.[0]?.text;
-
-    if (!content) {
-      console.error("No content in Gemini response:", JSON.stringify(aiResponse));
-      return jsonResponse(
-        { error: "AI থেকে কোনো response পাওয়া যায়নি", model: usedModel, debugVersion: DEBUG_VERSION },
         500,
       );
     }
