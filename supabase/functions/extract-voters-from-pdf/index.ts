@@ -42,14 +42,10 @@ serve(async (req) => {
 
 শুধুমাত্র JSON array রিটার্ন করো, অন্য কিছু না। যদি কোনো ভোটার না পাও, খালি array [] রিটার্ন করো।`;
 
-    // Call Gemini API directly
-    // NOTE: Model availability changes over time and varies by project.
-    // To prevent outages when a model name becomes unavailable, we try a small fallback list.
+    // Try multiple models in case one is unavailable
     const candidateModels = [
-      // Newer
       "gemini-2.0-flash",
-      // Common aliases
-      "gemini-1.5-flash-latest",
+      "gemini-1.5-flash-latest", 
       "gemini-1.5-pro-latest",
     ];
 
@@ -61,16 +57,16 @@ serve(async (req) => {
             {
               inline_data: {
                 mime_type: "application/pdf",
-                data: pdfBase64,
-              },
-            },
-          ],
-        },
+                data: pdfBase64
+              }
+            }
+          ]
+        }
       ],
       generationConfig: {
         temperature: 0.1,
         maxOutputTokens: 8000,
-      },
+      }
     };
 
     let response: Response | null = null;
@@ -80,31 +76,36 @@ serve(async (req) => {
     for (const model of candidateModels) {
       usedModel = model;
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
+      
+      console.log(`Trying model: ${model}`);
+      
       response = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(requestPayload),
       });
 
-      if (response.ok) break;
+      if (response.ok) {
+        console.log(`Success with model: ${model}`);
+        break;
+      }
+      
       lastErrorText = await response.text();
-      console.error("Gemini API error (model tried):", model, response.status, lastErrorText);
+      console.error(`Model ${model} failed:`, response.status, lastErrorText);
     }
 
     if (!response) {
       return new Response(
         JSON.stringify({ error: "Gemini API request failed to start" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     if (!response.ok) {
-      const errorText = lastErrorText || await response.text();
-      console.error('Gemini API error (all models failed):', {
-        status: response.status,
+      console.error('All Gemini models failed:', {
         triedModels: candidateModels,
         lastTriedModel: usedModel,
-        errorText,
+        lastError: lastErrorText,
       });
       
       if (response.status === 429) {
@@ -115,8 +116,8 @@ serve(async (req) => {
       }
       
       return new Response(
-        JSON.stringify({
-          error: 'Gemini API error: ' + errorText,
+        JSON.stringify({ 
+          error: 'Gemini API error: ' + lastErrorText,
           triedModels: candidateModels,
           lastTriedModel: usedModel,
         }),
@@ -130,7 +131,7 @@ serve(async (req) => {
     if (!content) {
       console.error('No content in Gemini response:', JSON.stringify(aiResponse));
       return new Response(
-        JSON.stringify({ error: 'AI থেকে কোনো response পাওয়া যায়নি' }),
+        JSON.stringify({ error: 'AI থেকে কোনো response পাওয়া যায়নি', model: usedModel }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -150,14 +151,15 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ 
           error: 'AI response parse করতে সমস্যা হয়েছে',
-          rawContent: content 
+          rawContent: content,
+          model: usedModel,
         }),
         { status: 422, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     return new Response(
-      JSON.stringify({ voters }),
+      JSON.stringify({ voters, model: usedModel }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
