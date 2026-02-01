@@ -1,13 +1,71 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
+
+const DEBUG_VERSION = "2026-02-01-model-discovery-v1";
+
+type ListedModel = {
+  name: string; // without "models/" prefix
+  displayName?: string;
+  supportedGenerationMethods: string[];
+};
+
+function jsonResponse(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+async function listAvailableModels(apiKey: string): Promise<
+  | { ok: true; models: ListedModel[] }
+  | { ok: false; status: number; errorText: string }
+> {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
+  const resp = await fetch(url);
+  const text = await resp.text();
+
+  if (!resp.ok) {
+    return { ok: false, status: resp.status, errorText: text };
+  }
+
+  let parsed: any;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    return { ok: false, status: 500, errorText: "ListModels returned non-JSON" };
+  }
+
+  const models: ListedModel[] = (parsed?.models ?? []).map((m: any) => ({
+    name: String(m?.name ?? "").replace(/^models\//, ""),
+    displayName: m?.displayName ? String(m.displayName) : undefined,
+    supportedGenerationMethods: Array.isArray(m?.supportedGenerationMethods)
+      ? m.supportedGenerationMethods.map((x: any) => String(x))
+      : [],
+  }));
+
+  return { ok: true, models };
+}
+
+function uniq<T>(arr: T[]) {
+  return Array.from(new Set(arr));
+}
+
+function scoreModelName(name: string) {
+  const n = name.toLowerCase();
+  // Prefer gemini flash models for cost/speed, then pro.
+  if (n.includes("flash")) return 0;
+  if (n.includes("pro")) return 1;
+  return 2;
+}
 
 serve(async (req) => {
   // Handle CORS preflight
-  if (req.method === 'OPTIONS') {
+  if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
@@ -15,19 +73,13 @@ serve(async (req) => {
     const { pdfBase64 } = await req.json();
 
     if (!pdfBase64) {
-      return new Response(
-        JSON.stringify({ error: 'PDF data is required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return jsonResponse({ error: "PDF data is required", debugVersion: DEBUG_VERSION }, 400);
     }
 
-    const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     if (!GEMINI_API_KEY) {
-      console.error('GEMINI_API_KEY is not configured');
-      return new Response(
-        JSON.stringify({ error: 'Gemini API key not configured' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      console.error("GEMINI_API_KEY is not configured");
+      return jsonResponse({ error: "Gemini API key not configured", debugVersion: DEBUG_VERSION }, 500);
     }
 
     const systemPrompt = `তুমি একজন ভোটার তালিকা ডাটা এক্সট্র্যাক্টর। এই PDF/ছবি থেকে সব ভোটারের তথ্য বের করো।
@@ -42,33 +94,52 @@ serve(async (req) => {
 
 শুধুমাত্র JSON array রিটার্ন করো, অন্য কিছু না। যদি কোনো ভোটার না পাও, খালি array [] রিটার্ন করো।`;
 
-    // Updated model names - using stable model identifiers
-    const candidateModels = [
-      "gemini-1.5-flash",
-      "gemini-1.5-pro",
-      "gemini-pro",
-      "gemini-pro-vision",
-    ];
-
     const requestPayload = {
       contents: [
         {
           parts: [
-            { text: systemPrompt + "\n\nএই ভোটার তালিকা থেকে সব ভোটারের তথ্য JSON array তে বের করো।" },
+            {
+              text:
+                systemPrompt +
+                "\n\nএই ভোটার তালিকা থেকে সব ভোটারের তথ্য JSON array তে বের করো।",
+            },
             {
               inline_data: {
                 mime_type: "application/pdf",
-                data: pdfBase64
-              }
-            }
-          ]
-        }
+                data: pdfBase64,
+              },
+            },
+          ],
+        },
       ],
       generationConfig: {
         temperature: 0.1,
         maxOutputTokens: 8000,
-      }
+      },
     };
+
+    // 1) Always try a small set of common names (fast path)
+    const hardcodedCandidates = [
+      "gemini-flash-latest",
+      "gemini-2.0-flash",
+      "gemini-2.5-flash",
+      "gemini-2.5-pro",
+    ];
+
+    // 2) Then dynamically discover models available for THIS API key
+    const listResult = await listAvailableModels(GEMINI_API_KEY);
+    const discoveredModels =
+      listResult.ok
+        ? listResult.models
+            .filter((m) => m.supportedGenerationMethods.includes("generateContent"))
+            .map((m) => m.name)
+            .filter((n) => n)
+        : [];
+
+    const candidateModels = uniq([...hardcodedCandidates, ...discoveredModels])
+      .filter((n) => n.toLowerCase().includes("gemini"))
+      .sort((a, b) => scoreModelName(a) - scoreModelName(b))
+      .slice(0, 12);
 
     let response: Response | null = null;
     let lastErrorText = "";
@@ -77,52 +148,54 @@ serve(async (req) => {
     for (const model of candidateModels) {
       usedModel = model;
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
-      
-      console.log(`Trying model: ${model}`);
-      
+
       response = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(requestPayload),
       });
 
-      if (response.ok) {
-        console.log(`Success with model: ${model}`);
-        break;
-      }
-      
+      if (response.ok) break;
+
       lastErrorText = await response.text();
-      console.error(`Model ${model} failed:`, response.status, lastErrorText);
+      console.error("Gemini API error (model tried):", model, response.status, lastErrorText);
     }
 
     if (!response) {
-      return new Response(
-        JSON.stringify({ error: "Gemini API request failed to start" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return jsonResponse({ error: "Gemini API request failed to start", debugVersion: DEBUG_VERSION }, 500);
     }
 
     if (!response.ok) {
-      console.error('All Gemini models failed:', {
-        triedModels: candidateModels,
-        lastTriedModel: usedModel,
-        lastError: lastErrorText,
-      });
-      
+      // surface model discovery details so you can see what your key actually supports
+      const discoveryDetails =
+        listResult.ok
+          ? {
+              discoveredCount: listResult.models.length,
+              discoveredGenerateContentCount: discoveredModels.length,
+              discoveredSample: discoveredModels.slice(0, 20),
+            }
+          : {
+              listModelsFailed: true,
+              listModelsStatus: listResult.status,
+              listModelsErrorText: listResult.errorText?.slice(0, 2000),
+            };
+
       if (response.status === 429) {
-        return new Response(
-          JSON.stringify({ error: 'Rate limit exceeded. অনুগ্রহ করে কিছুক্ষণ পর আবার চেষ্টা করুন।' }),
-          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        return jsonResponse(
+          { error: "Rate limit exceeded. অনুগ্রহ করে কিছুক্ষণ পর আবার চেষ্টা করুন।", debugVersion: DEBUG_VERSION },
+          429,
         );
       }
-      
-      return new Response(
-        JSON.stringify({ 
-          error: 'Gemini API error: ' + lastErrorText,
+
+      return jsonResponse(
+        {
+          error: "Gemini API error: " + (lastErrorText || "(no body)"),
           triedModels: candidateModels,
           lastTriedModel: usedModel,
-        }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          debugVersion: DEBUG_VERSION,
+          ...discoveryDetails,
+        },
+        500,
       );
     }
 
@@ -130,17 +203,16 @@ serve(async (req) => {
     const content = aiResponse.candidates?.[0]?.content?.parts?.[0]?.text;
 
     if (!content) {
-      console.error('No content in Gemini response:', JSON.stringify(aiResponse));
-      return new Response(
-        JSON.stringify({ error: 'AI থেকে কোনো response পাওয়া যায়নি', model: usedModel }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      console.error("No content in Gemini response:", JSON.stringify(aiResponse));
+      return jsonResponse(
+        { error: "AI থেকে কোনো response পাওয়া যায়নি", model: usedModel, debugVersion: DEBUG_VERSION },
+        500,
       );
     }
 
     // Parse the JSON from AI response
-    let voters = [];
+    let voters: any[] = [];
     try {
-      // Try to extract JSON from the response (AI might wrap it in markdown code blocks)
       const jsonMatch = content.match(/\[[\s\S]*\]/);
       if (jsonMatch) {
         voters = JSON.parse(jsonMatch[0]);
@@ -148,27 +220,19 @@ serve(async (req) => {
         voters = JSON.parse(content);
       }
     } catch (parseError) {
-      console.error('JSON parse error:', parseError, 'Content:', content);
-      return new Response(
-        JSON.stringify({ 
-          error: 'AI response parse করতে সমস্যা হয়েছে',
-          rawContent: content,
-          model: usedModel,
-        }),
-        { status: 422, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      console.error("JSON parse error:", parseError, "Content:", content);
+      return jsonResponse(
+        { error: "AI response parse করতে সমস্যা হয়েছে", rawContent: content, model: usedModel, debugVersion: DEBUG_VERSION },
+        422,
       );
     }
 
-    return new Response(
-      JSON.stringify({ voters, model: usedModel }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-
+    return jsonResponse({ voters, model: usedModel, debugVersion: DEBUG_VERSION });
   } catch (error) {
-    console.error('Edge function error:', error);
-    return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    console.error("Edge function error:", error);
+    return jsonResponse(
+      { error: error instanceof Error ? error.message : "Unknown error", debugVersion: DEBUG_VERSION },
+      500,
     );
   }
 });
