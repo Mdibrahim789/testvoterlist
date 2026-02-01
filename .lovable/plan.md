@@ -1,127 +1,61 @@
 
-# Constituency & Candidates Feature Plan
+# PDF থেকে অটো ভোটার ডাটা এক্সট্র্যাক্ট - প্ল্যান
 
-## Summary
-নির্বাচনী আসন (Constituency) এবং প্রার্থীদের তথ্য (Candidates) যোগ করা হবে। ইউজার সার্চ পেজে নিচে আসনের নাম এবং প্রার্থীদের তালিকা দেখাবে। অ্যাডমিন সব তথ্য Add/Edit করতে পারবে।
-
----
-
-## New Features
-
-### 1. Constituency (আসন) তথ্য
-- আসনের নাম (যেমন: "ঢাকা-১২")
-- একটি আসনের তথ্য স্টোর করা হবে (Single Row)
-
-### 2. Candidates (প্রার্থী) তথ্য
-- ক্রম নম্বর
-- দাখিলকারীর নাম
-- ছবি (Image URL)
-- রাজনৈতিক দল/স্বতন্ত্র
-- নির্বাচনী প্রতীক
-
-### 3. Admin Panel
-- আসনের নাম Add/Edit করার ফর্ম
-- প্রার্থী Add/Edit/Delete করার ফিচার
-- ছবি আপলোড করার সুবিধা (Image URL)
-
-### 4. User Page
-- পেজের নিচে আসনের নাম দেখাবে
-- প্রার্থীদের সুন্দর টেবিল দেখাবে (যেমন ছবিতে দেখানো হয়েছে)
+## সারসংক্ষেপ
+PDF আপলোড করলে **Lovable AI (Gemini)** ব্যবহার করে অটোমেটিক ভোটার তথ্য বের করে ডাটাবেসে যোগ করা হবে। তোমার আলাদা Gemini API key দেওয়ার দরকার নেই - Lovable AI তে Gemini already built-in আছে!
 
 ---
 
-## Database Schema
+## কীভাবে কাজ করবে
 
-### New Tables
-
-**`constituency` table:**
-```sql
-CREATE TABLE constituency (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name TEXT NOT NULL,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now()
-);
-
--- Insert default row
-INSERT INTO constituency (name) VALUES ('আসনের নাম');
-```
-
-**`candidates` table:**
-```sql
-CREATE TABLE candidates (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  serial_no INTEGER NOT NULL,
-  name TEXT NOT NULL,
-  photo_url TEXT,
-  party_name TEXT NOT NULL,
-  symbol TEXT NOT NULL,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
-
--- RLS Policies
-ALTER TABLE constituency ENABLE ROW LEVEL SECURITY;
-ALTER TABLE candidates ENABLE ROW LEVEL SECURITY;
-
--- Public read access
-CREATE POLICY "Allow public read constituency" ON constituency FOR SELECT USING (true);
-CREATE POLICY "Allow public read candidates" ON candidates FOR SELECT USING (true);
-
--- Admin write access
-CREATE POLICY "Allow admin insert constituency" ON constituency FOR INSERT WITH CHECK (true);
-CREATE POLICY "Allow admin update constituency" ON constituency FOR UPDATE USING (true);
-CREATE POLICY "Allow admin insert candidates" ON candidates FOR INSERT WITH CHECK (true);
-CREATE POLICY "Allow admin update candidates" ON candidates FOR UPDATE USING (true);
-CREATE POLICY "Allow admin delete candidates" ON candidates FOR DELETE USING (true);
-```
-
----
-
-## UI Preview
-
-### User Page (নিচের অংশে)
 ```text
-+--------------------------------------------------+
-|                                                  |
-|  ╔══════════════════════════════════════════╗   |
-|  ║  আসন: ঢাকা-১২ (বোর্ড অফ কন্ট্রোলার)       ║   |
-|  ╚══════════════════════════════════════════╝   |
-|                                                  |
-|  +----------------------------------------------+|
-|  |  প্রার্থী তালিকা                              ||
-|  +----------------------------------------------+|
-|  | ক্রম | নাম           | ছবি | দল        | প্রতীক ||
-|  +----------------------------------------------+|
-|  |  ১  | মোঃ মাসুদ    | [img] | জামায়াতে  | দাঁড়িপাল্লা ||
-|  |  ২  | মোঃ শরীফ     | [img] | বি.এন.পি  | ধানের শীষ ||
-|  |  ৩  | মোহাম্মদ জহুরুল | [img] | ইসলামী  | হাতপাখা ||
-|  +----------------------------------------------+|
-+--------------------------------------------------+
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│   PDF আপলোড     │ ──▶ │  Gemini AI      │ ──▶ │  ডাটাবেসে সেভ   │
+│   (Admin Panel) │     │  (Extract Data) │     │  (voters table) │
+└─────────────────┘     └─────────────────┘     └─────────────────┘
 ```
 
-### Admin Panel (নতুন সেকশন)
-```text
-+--------------------------------------------------+
-|  আসন ও প্রার্থী ব্যবস্থাপনা                        |
-+--------------------------------------------------+
-|                                                  |
-|  আসনের নাম: [______________] [সেভ করুন]          |
-|                                                  |
-|  +----------------------------------------------+|
-|  | প্রার্থী যোগ করুন                              ||
-|  | নাম: [________]  দল: [________]              ||
-|  | প্রতীক: [________]  ছবি URL: [________]        ||
-|  | [+ যোগ করুন]                                  ||
-|  +----------------------------------------------+|
-|                                                  |
-|  +----------------------------------------------+|
-|  | প্রার্থী তালিকা                    [সব মুছুন]  ||
-|  +----------------------------------------------+|
-|  | ক্রম | নাম | দল | প্রতীক | Actions           ||
-|  | 1  | ... | ... | ...  | [Edit] [Delete]     ||
-|  +----------------------------------------------+|
-+--------------------------------------------------+
-```
+1. **অ্যাডমিন PDF আপলোড করবে**
+2. **PDF কে Base64 এ কনভার্ট করে Gemini AI তে পাঠানো হবে**
+3. **Gemini AI ভোটার তালিকা থেকে ডাটা এক্সট্র্যাক্ট করবে**
+4. **অটো ডাটাবেসে ভোটার যোগ হবে**
+
+---
+
+## নতুন ফিচার
+
+### 1. PDF আপলোড অপশন
+- DataUploadCard এ নতুন "PDF (AI)" ট্যাব যোগ হবে
+- PDF ফাইল সিলেক্ট করার সুবিধা
+
+### 2. AI Data Extraction
+- Gemini AI ব্যবহার করে PDF থেকে ভোটার তথ্য বের করা
+- বাংলা ডিজিট এবং টেক্সট সাপোর্ট
+
+### 3. Preview & Confirm
+- AI যা এক্সট্র্যাক্ট করেছে তা দেখানো হবে
+- কনফার্ম করলে ডাটাবেসে যোগ হবে
+
+---
+
+## Implementation Steps
+
+### Step 1: Lovable Cloud Enable করতে হবে
+Edge Function চালাতে Lovable Cloud প্রয়োজন।
+
+### Step 2: Edge Function তৈরি
+`supabase/functions/extract-voters-from-pdf/index.ts`:
+- PDF (base64) receive করবে
+- Lovable AI Gateway কল করবে
+- Gemini Vision ব্যবহার করে ডাটা এক্সট্র্যাক্ট করবে
+- JSON ফরম্যাটে ভোটার তালিকা রিটার্ন করবে
+
+### Step 3: DataUploadCard আপডেট
+নতুন PDF ট্যাব যোগ:
+- PDF ফাইল আপলোড
+- "AI দিয়ে এক্সট্র্যাক্ট করুন" বাটন
+- এক্সট্র্যাক্টেড ডাটা প্রিভিউ
+- কনফার্ম করলে ডাটাবেসে সেভ
 
 ---
 
@@ -129,45 +63,113 @@ CREATE POLICY "Allow admin delete candidates" ON candidates FOR DELETE USING (tr
 
 | File | Action | Description |
 |------|--------|-------------|
-| `src/types/database.ts` | Modify | Add Constituency and Candidate interfaces |
-| `src/hooks/useConstituency.ts` | Create | Hook for constituency data |
-| `src/hooks/useCandidates.ts` | Create | Hook for candidates CRUD |
-| `src/components/ConstituencyCard.tsx` | Create | Display constituency info |
-| `src/components/CandidatesTable.tsx` | Create | Display candidates table |
-| `src/components/CandidateManagement.tsx` | Create | Admin candidate management |
-| `src/pages/AdminDashboard.tsx` | Modify | Add constituency/candidates section |
-| `src/pages/Index.tsx` | Modify | Show constituency and candidates |
+| `supabase/functions/extract-voters-from-pdf/index.ts` | Create | Gemini AI Edge Function |
+| `supabase/config.toml` | Modify | Function config যোগ |
+| `src/components/DataUploadCard.tsx` | Modify | PDF upload tab যোগ |
 
 ---
 
-## Implementation Steps
+## Edge Function Code Overview
 
-### Step 1: Database Setup (Manual SQL in Supabase)
-- Create `constituency` and `candidates` tables
-- Add RLS policies for public read and admin write
-
-### Step 2: Type Definitions
-- Add `Constituency` and `Candidate` interfaces
-- Add insert/update types
-
-### Step 3: Custom Hooks
-- `useConstituency`: Fetch and update constituency name
-- `useCandidates`: Fetch, add, edit, delete candidates
-
-### Step 4: UI Components
-- `ConstituencyCard`: Shows constituency name with nice styling
-- `CandidatesTable`: Displays candidates with photo, party, symbol
-- `CandidateManagement`: Admin form for managing candidates
-
-### Step 5: Page Integration
-- Add components to Index.tsx (user view)
-- Add management section to AdminDashboard.tsx
+```typescript
+// Gemini AI কে PDF পাঠানো হবে এভাবে:
+const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+  method: "POST",
+  headers: {
+    Authorization: `Bearer ${LOVABLE_API_KEY}`,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    model: "google/gemini-2.5-flash",
+    messages: [
+      {
+        role: "user",
+        content: [
+          {
+            type: "text",
+            text: "এই ভোটার তালিকা থেকে সব ভোটারের তথ্য JSON ফরম্যাটে বের করো..."
+          },
+          {
+            type: "image_url",
+            image_url: { url: `data:application/pdf;base64,${pdfBase64}` }
+          }
+        ]
+      }
+    ]
+  })
+});
+```
 
 ---
 
-## Benefits
+## UI Preview
 
-1. **Complete Election Info**: ইউজাররা আসন ও প্রার্থী সব দেখতে পাবে
-2. **Easy Management**: অ্যাডমিন সহজে সব তথ্য আপডেট করতে পারবে
-3. **Visual Appeal**: ছবি ও প্রতীক সহ সুন্দর প্রেজেন্টেশন
-4. **Flexible**: যেকোনো আসনের জন্য ব্যবহার করা যাবে
+```text
+┌──────────────────────────────────────────────────┐
+│  ডাটা আপলোড                                      │
+├──────────────────────────────────────────────────┤
+│  [ফাইল আপলোড] [টেক্সট ইনপুট] [PDF (AI) ✨]       │
+├──────────────────────────────────────────────────┤
+│                                                  │
+│  ┌────────────────────────────────────────────┐  │
+│  │  📄  PDF আপলোড করুন                        │  │
+│  │  ভোটার তালিকার PDF দিন, AI অটো            │  │
+│  │  ডাটা বের করবে                            │  │
+│  └────────────────────────────────────────────┘  │
+│                                                  │
+│  [🔍 AI দিয়ে এক্সট্র্যাক্ট করুন]                  │
+│                                                  │
+│  ────────────────────────────────────────────    │
+│  প্রিভিউ: ১২টি ভোটার পাওয়া গেছে                  │
+│  ┌────────────────────────────────────────────┐  │
+│  │ ক্রম │ নাম         │ ভোটার নং    │ জন্ম    │  │
+│  │  ১  │ মোঃ করিম    │ 123456789  │ 1990   │  │
+│  │  ২  │ মোঃ রহিম    │ 987654321  │ 1985   │  │
+│  └────────────────────────────────────────────┘  │
+│                                                  │
+│  [✓ ডাটাবেসে যোগ করুন]                          │
+└──────────────────────────────────────────────────┘
+```
+
+---
+
+## সুবিধা
+
+1. **সময় বাঁচবে**: ম্যানুয়ালি CSV বানাতে হবে না
+2. **সহজ**: শুধু PDF আপলোড করো, বাকি AI করবে
+3. **বাংলা সাপোর্ট**: বাংলা নাম, ঠিকানা সব ঠিকমতো এক্সট্র্যাক্ট হবে
+4. **প্রিভিউ**: ডাটা সেভ করার আগে দেখে নিতে পারবে
+5. **ফ্রি API**: তোমার আলাদা Gemini key লাগবে না
+
+---
+
+## প্রয়োজনীয় পদক্ষেপ
+
+এই ফিচার ইমপ্লিমেন্ট করতে **Lovable Cloud enable** করতে হবে। Cloud enable করলে:
+- Edge Function চালানো যাবে
+- Lovable AI (Gemini) ব্যবহার করা যাবে
+- কোনো API key দেওয়ার দরকার নেই
+
+---
+
+## Technical Details
+
+### Gemini Prompt
+```text
+তুমি একজন ভোটার তালিকা ডাটা এক্সট্র্যাক্টর। এই PDF থেকে সব ভোটারের তথ্য বের করো।
+
+প্রতিটি ভোটারের জন্য এই ফিল্ডগুলো বের করো:
+- sl: ক্রমিক নম্বর (integer)
+- voter_no: ভোটার নম্বর (string)
+- name_bn: নাম বাংলায় (string)
+- father_husband: পিতা/স্বামীর নাম (string)
+- dob: জন্ম তারিখ (string)
+- address: ঠিকানা (string)
+
+শুধুমাত্র JSON array রিটার্ন করো, অন্য কিছু না।
+```
+
+### Error Handling
+- PDF পড়তে না পারলে error message
+- AI response parse করতে না পারলে retry option
+- Rate limit হলে proper message দেখানো
