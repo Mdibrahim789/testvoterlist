@@ -210,14 +210,21 @@ serve(async (req) => {
       );
     }
 
-    // Parse the JSON from AI response
+    // Parse the JSON from AI response - handle markdown code blocks
     let voters: any[] = [];
     try {
-      const jsonMatch = content.match(/\[[\s\S]*\]/);
+      // Strip markdown code block wrappers if present
+      let cleanContent = content
+        .replace(/^```(?:json)?\s*/i, "")
+        .replace(/\s*```\s*$/i, "")
+        .trim();
+      
+      // Try to find JSON array
+      const jsonMatch = cleanContent.match(/\[[\s\S]*\]/);
       if (jsonMatch) {
         voters = JSON.parse(jsonMatch[0]);
       } else {
-        voters = JSON.parse(content);
+        voters = JSON.parse(cleanContent);
       }
     } catch (parseError) {
       console.error("JSON parse error:", parseError, "Content:", content);
