@@ -42,11 +42,12 @@ serve(async (req) => {
 
 শুধুমাত্র JSON array রিটার্ন করো, অন্য কিছু না। যদি কোনো ভোটার না পাও, খালি array [] রিটার্ন করো।`;
 
-    // Try multiple models in case one is unavailable
+    // Updated model names - using stable model identifiers
     const candidateModels = [
-      "gemini-2.0-flash",
-      "gemini-1.5-flash-latest", 
-      "gemini-1.5-pro-latest",
+      "gemini-1.5-flash",
+      "gemini-1.5-pro",
+      "gemini-pro",
+      "gemini-pro-vision",
     ];
 
     const requestPayload = {
