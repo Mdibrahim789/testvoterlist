@@ -6,61 +6,13 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const DEBUG_VERSION = "2026-02-01-model-discovery-v1";
-
-type ListedModel = {
-  name: string; // without "models/" prefix
-  displayName?: string;
-  supportedGenerationMethods: string[];
-};
+const DEBUG_VERSION = "2026-02-04-lovable-ai-v1";
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
-}
-
-async function listAvailableModels(apiKey: string): Promise<
-  | { ok: true; models: ListedModel[] }
-  | { ok: false; status: number; errorText: string }
-> {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
-  const resp = await fetch(url);
-  const text = await resp.text();
-
-  if (!resp.ok) {
-    return { ok: false, status: resp.status, errorText: text };
-  }
-
-  let parsed: any;
-  try {
-    parsed = JSON.parse(text);
-  } catch {
-    return { ok: false, status: 500, errorText: "ListModels returned non-JSON" };
-  }
-
-  const models: ListedModel[] = (parsed?.models ?? []).map((m: any) => ({
-    name: String(m?.name ?? "").replace(/^models\//, ""),
-    displayName: m?.displayName ? String(m.displayName) : undefined,
-    supportedGenerationMethods: Array.isArray(m?.supportedGenerationMethods)
-      ? m.supportedGenerationMethods.map((x: any) => String(x))
-      : [],
-  }));
-
-  return { ok: true, models };
-}
-
-function uniq<T>(arr: T[]) {
-  return Array.from(new Set(arr));
-}
-
-function scoreModelName(name: string) {
-  const n = name.toLowerCase();
-  // Prefer gemini flash models for cost/speed, then pro.
-  if (n.includes("flash")) return 0;
-  if (n.includes("pro")) return 1;
-  return 2;
 }
 
 serve(async (req) => {
@@ -76,10 +28,10 @@ serve(async (req) => {
       return jsonResponse({ error: "PDF data is required", debugVersion: DEBUG_VERSION }, 400);
     }
 
-    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
-    if (!GEMINI_API_KEY) {
-      console.error("GEMINI_API_KEY is not configured");
-      return jsonResponse({ error: "Gemini API key not configured", debugVersion: DEBUG_VERSION }, 500);
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) {
+      console.error("LOVABLE_API_KEY is not configured");
+      return jsonResponse({ error: "Lovable API key not configured", debugVersion: DEBUG_VERSION }, 500);
     }
 
     const systemPrompt = `তুমি একজন ভোটার তালিকা ডাটা এক্সট্র্যাক্টর। এই PDF/ছবি থেকে সব ভোটারের তথ্য বের করো।
@@ -92,149 +44,69 @@ serve(async (req) => {
 - dob: জন্ম তারিখ (string, যেভাবে আছে সেভাবে)
 - address: ঠিকানা (string)
 
-শুধুমাত্র JSON array রিটার্ন করো, অন্য কিছু না। যদি কোনো ভোটার না পাও, খালি array [] রিটার্ন করো।`;
+গুরুত্বপূর্ণ: শুধুমাত্র JSON array রিটার্ন করো, অন্য কিছু না। কোনো ব্যাখ্যা বা markdown code fence দিও না। সরাসরি [ দিয়ে শুরু করো এবং ] দিয়ে শেষ করো। যদি কোনো ভোটার না পাও, খালি array [] রিটার্ন করো।`;
 
-    const requestPayload = {
-      contents: [
-        {
-          parts: [
-            {
-              text:
-                systemPrompt +
-                "\n\nএই ভোটার তালিকা থেকে সব ভোটারের তথ্য JSON array তে বের করো।",
-            },
-            {
-              inline_data: {
-                mime_type: "application/pdf",
-                data: pdfBase64,
-              },
-            },
-          ],
-        },
-      ],
-      generationConfig: {
-        temperature: 0.1,
-        maxOutputTokens: 8000,
+    const userPrompt = `এই ভোটার তালিকা থেকে সব ভোটারের তথ্য JSON array তে বের করো। শুধু JSON array দাও, কোনো ব্যাখ্যা দিও না।`;
+
+    // Use Lovable AI Gateway with vision-capable model
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
       },
-    };
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [
+          { role: "system", content: systemPrompt },
+          {
+            role: "user",
+            content: [
+              { type: "text", text: userPrompt },
+              {
+                type: "image_url",
+                image_url: {
+                  url: `data:application/pdf;base64,${pdfBase64}`,
+                },
+              },
+            ],
+          },
+        ],
+        max_tokens: 8000,
+        temperature: 0.1,
+      }),
+    });
 
-    // 1) Always try a small set of common names (fast path)
-    const hardcodedCandidates = [
-      "gemini-flash-latest",
-      "gemini-2.0-flash",
-      "gemini-2.5-flash",
-      "gemini-2.5-pro",
-    ];
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Lovable AI Gateway error:", response.status, errorText);
 
-    // 2) Then dynamically discover models available for THIS API key
-    const listResult = await listAvailableModels(GEMINI_API_KEY);
-    const discoveredModels =
-      listResult.ok
-        ? listResult.models
-            .filter((m) => m.supportedGenerationMethods.includes("generateContent"))
-            .map((m) => m.name)
-            .filter((n) => n)
-        : [];
-
-    const candidateModels = uniq([...hardcodedCandidates, ...discoveredModels])
-      .filter((n) => n.toLowerCase().includes("gemini"))
-      .sort((a, b) => scoreModelName(a) - scoreModelName(b))
-      .slice(0, 12);
-
-    const extractTextFromGeminiResponse = (payload: any): string => {
-      const parts = payload?.candidates?.[0]?.content?.parts;
-      if (!Array.isArray(parts)) return "";
-      return parts
-        .map((p: any) => (typeof p?.text === "string" ? p.text : ""))
-        .join("")
-        .trim();
-    };
-
-    let lastErrorText = "";
-    let lastStatus: number | null = null;
-    let usedModel: string | null = null;
-    let aiResponse: any | null = null;
-    let content = "";
-    let finishReason: string | null = null;
-
-    for (const model of candidateModels) {
-      usedModel = model;
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
-
-      const resp = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(requestPayload),
-      });
-
-      lastStatus = resp.status;
-      const respText = await resp.text();
-
-      if (!resp.ok) {
-        lastErrorText = respText;
-        console.error("Gemini API error (model tried):", model, resp.status, lastErrorText);
-        // rate-limit/credits errors won't be fixed by trying other models
-        if (resp.status === 429) break;
-        continue;
-      }
-
-      // Success status, but still might not contain text (safety / max tokens / unexpected response)
-      try {
-        aiResponse = JSON.parse(respText);
-      } catch {
-        lastErrorText = respText.slice(0, 2000);
-        console.error("Gemini returned non-JSON despite 2xx:", model, lastErrorText);
-        continue;
-      }
-
-      finishReason = aiResponse?.candidates?.[0]?.finishReason
-        ? String(aiResponse.candidates[0].finishReason)
-        : null;
-
-      content = extractTextFromGeminiResponse(aiResponse);
-      if (content) break;
-
-      lastErrorText = `2xx but empty text. finishReason=${finishReason ?? "unknown"}`;
-      console.error("Gemini empty content (model tried):", model, lastErrorText);
-    }
-
-    if (!content || !aiResponse) {
-      // surface model discovery details so you can see what your key actually supports
-      const discoveryDetails =
-        listResult.ok
-          ? {
-              discoveredCount: listResult.models.length,
-              discoveredGenerateContentCount: discoveredModels.length,
-              discoveredSample: discoveredModels.slice(0, 20),
-            }
-          : {
-              listModelsFailed: true,
-              listModelsStatus: listResult.status,
-              listModelsErrorText: listResult.errorText?.slice(0, 2000),
-            };
-
-      if (lastStatus === 429) {
+      if (response.status === 429) {
         return jsonResponse(
           { error: "Rate limit exceeded. অনুগ্রহ করে কিছুক্ষণ পর আবার চেষ্টা করুন।", debugVersion: DEBUG_VERSION },
-          429,
+          429
+        );
+      }
+      if (response.status === 402) {
+        return jsonResponse(
+          { error: "Credits শেষ। অনুগ্রহ করে Lovable AI তে ক্রেডিট যোগ করুন।", debugVersion: DEBUG_VERSION },
+          402
         );
       }
 
-      const safety = aiResponse?.promptFeedback ?? aiResponse?.candidates?.[0]?.safetyRatings;
-      const reasonHint = finishReason ? ` (finishReason=${finishReason})` : "";
-
       return jsonResponse(
-        {
-          error: "AI থেকে কোনো response পাওয়া যায়নি" + reasonHint,
-          lastError: lastErrorText?.slice(0, 2000) || undefined,
-          triedModels: candidateModels,
-          lastTriedModel: usedModel,
-          finishReason,
-          safety,
-          debugVersion: DEBUG_VERSION,
-          ...discoveryDetails,
-        },
-        500,
+        { error: "AI Gateway error", details: errorText.slice(0, 500), debugVersion: DEBUG_VERSION },
+        500
+      );
+    }
+
+    const aiResponse = await response.json();
+    const content = aiResponse?.choices?.[0]?.message?.content?.trim() || "";
+
+    if (!content) {
+      return jsonResponse(
+        { error: "AI থেকে কোনো response পাওয়া যায়নি", debugVersion: DEBUG_VERSION },
+        500
       );
     }
 
@@ -244,16 +116,11 @@ serve(async (req) => {
       const normalizeAiText = (text: string) => {
         let t = text.trim();
 
-        // If the model included a code fence, keep everything from the first fence onward
+        // Remove markdown code fences if present
         const firstFence = t.indexOf("```");
         if (firstFence !== -1) t = t.slice(firstFence);
-
-        // Remove an opening fence even if the closing fence is missing
         t = t.replace(/^```\s*(?:json)?\s*/i, "");
-        // Remove trailing fence if present
         t = t.replace(/\s*```\s*$/i, "");
-
-        // In some cases we still may have stray backticks
         t = t.replace(/```/g, "");
         return t.trim();
       };
@@ -338,19 +205,18 @@ serve(async (req) => {
         {
           error: "AI response parse করতে সমস্যা হয়েছে",
           rawContent: content.slice(0, 1000),
-          model: usedModel,
           debugVersion: DEBUG_VERSION,
         },
-        422,
+        422
       );
     }
 
-    return jsonResponse({ voters, model: usedModel, debugVersion: DEBUG_VERSION });
+    return jsonResponse({ voters, debugVersion: DEBUG_VERSION });
   } catch (error) {
     console.error("Edge function error:", error);
     return jsonResponse(
       { error: error instanceof Error ? error.message : "Unknown error", debugVersion: DEBUG_VERSION },
-      500,
+      500
     );
   }
 });
