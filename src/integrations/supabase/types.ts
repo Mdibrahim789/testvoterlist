@@ -14,7 +14,167 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      candidates: {
+        Row: {
+          created_at: string | null
+          id: string
+          name: string
+          party_name: string
+          photo_url: string | null
+          serial_no: number
+          symbol: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          name: string
+          party_name: string
+          photo_url?: string | null
+          serial_no: number
+          symbol: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          name?: string
+          party_name?: string
+          photo_url?: string | null
+          serial_no?: number
+          symbol?: string
+        }
+        Relationships: []
+      }
+      constituency: {
+        Row: {
+          created_at: string | null
+          id: string
+          name: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          name: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          name?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      upazilas: {
+        Row: {
+          created_at: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string | null
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      voters: {
+        Row: {
+          address: string | null
+          area: string | null
+          created_at: string | null
+          dob: string | null
+          father_husband: string | null
+          id: string
+          name_bn: string
+          sl: number | null
+          upazila: string | null
+          voter_no: string
+          ward_union: string | null
+        }
+        Insert: {
+          address?: string | null
+          area?: string | null
+          created_at?: string | null
+          dob?: string | null
+          father_husband?: string | null
+          id?: string
+          name_bn: string
+          sl?: number | null
+          upazila?: string | null
+          voter_no: string
+          ward_union?: string | null
+        }
+        Update: {
+          address?: string | null
+          area?: string | null
+          created_at?: string | null
+          dob?: string | null
+          father_husband?: string | null
+          id?: string
+          name_bn?: string
+          sl?: number | null
+          upazila?: string | null
+          voter_no?: string
+          ward_union?: string | null
+        }
+        Relationships: []
+      }
+      wards_unions: {
+        Row: {
+          created_at: string | null
+          id: string
+          name: string
+          upazila_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          name: string
+          upazila_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          name?: string
+          upazila_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wards_unions_upazila_id_fkey"
+            columns: ["upazila_id"]
+            isOneToOne: false
+            referencedRelation: "upazilas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +183,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "pending_admin"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +310,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "pending_admin"],
+    },
   },
 } as const
