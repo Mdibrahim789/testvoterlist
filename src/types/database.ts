@@ -1,98 +1,20 @@
-export type AppRole = 'admin' | 'pending_admin';
+import { Database } from '@/integrations/supabase/types';
 
-export interface Voter {
-  id: string;
-  sl: number | null;
-  voter_no: string;
-  name_bn: string;
-  father_husband: string | null;
-  dob: string | null;
-  address: string | null;
-  area: string | null;
-  upazila: string | null;
-  ward_union: string | null;
-  created_at: string;
-}
+export type AppRole = Database['public']['Enums']['app_role'];
 
-export interface UserRole {
-  id: string;
-  user_id: string;
-  role: AppRole;
-  created_at: string;
-}
+// Use the generated types from Supabase
+export type Voter = Database['public']['Tables']['voters']['Row'];
+export type VoterInsert = Database['public']['Tables']['voters']['Insert'];
+export type VoterUpdate = Database['public']['Tables']['voters']['Update'];
 
-export interface VoterInsert {
-  sl?: number | null;
-  voter_no: string;
-  name_bn: string;
-  father_husband?: string | null;
-  dob?: string | null;
-  address?: string | null;
-  area?: string | null;
-  upazila?: string | null;
-  ward_union?: string | null;
-}
+export type UserRole = Database['public']['Tables']['user_roles']['Row'];
 
-export interface VoterUpdate {
-  sl?: number | null;
-  voter_no?: string;
-  name_bn?: string;
-  father_husband?: string | null;
-  dob?: string | null;
-  address?: string | null;
-  area?: string | null;
-  upazila?: string | null;
-  ward_union?: string | null;
-}
+export type Upazila = Database['public']['Tables']['upazilas']['Row'];
+export type WardUnion = Database['public']['Tables']['wards_unions']['Row'];
 
-export interface Upazila {
-  id: string;
-  name: string;
-  created_at: string;
-}
+export type Constituency = Database['public']['Tables']['constituency']['Row'];
+export type ConstituencyUpdate = Database['public']['Tables']['constituency']['Update'];
 
-export interface WardUnion {
-  id: string;
-  name: string;
-  upazila_id: string;
-  created_at: string;
-}
-
-// Constituency (আসন)
-export interface Constituency {
-  id: string;
-  name: string;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface ConstituencyUpdate {
-  name?: string;
-}
-
-// Candidate (প্রার্থী)
-export interface Candidate {
-  id: string;
-  serial_no: number;
-  name: string;
-  photo_url: string | null;
-  party_name: string;
-  symbol: string;
-  created_at: string;
-}
-
-export interface CandidateInsert {
-  serial_no: number;
-  name: string;
-  photo_url?: string | null;
-  party_name: string;
-  symbol: string;
-}
-
-export interface CandidateUpdate {
-  serial_no?: number;
-  name?: string;
-  photo_url?: string | null;
-  party_name?: string;
-  symbol?: string;
-}
+export type Candidate = Database['public']['Tables']['candidates']['Row'];
+export type CandidateInsert = Database['public']['Tables']['candidates']['Insert'];
+export type CandidateUpdate = Database['public']['Tables']['candidates']['Update'];
