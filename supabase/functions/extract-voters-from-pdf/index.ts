@@ -238,26 +238,64 @@ serve(async (req) => {
       );
     }
 
-    // Parse the JSON from AI response - handle markdown code blocks
+    // Parse the JSON from AI response - handle markdown code blocks and incomplete JSON
     let voters: any[] = [];
     try {
-      // Strip markdown code block wrappers if present
-      let cleanContent = content
-        .replace(/^```(?:json)?\s*/i, "")
-        .replace(/\s*```\s*$/i, "")
-        .trim();
+      // First, try to extract JSON from markdown code block anywhere in the content
+      const codeBlockMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/i);
+      let jsonContent = codeBlockMatch ? codeBlockMatch[1].trim() : content.trim();
       
-      // Try to find JSON array
-      const jsonMatch = cleanContent.match(/\[[\s\S]*\]/);
+      // Try to find JSON array pattern
+      const jsonMatch = jsonContent.match(/\[[\s\S]*\]/);
       if (jsonMatch) {
-        voters = JSON.parse(jsonMatch[0]);
+        try {
+          voters = JSON.parse(jsonMatch[0]);
+        } catch {
+          // JSON might be incomplete (cut off), try to fix it
+          let fixedJson = jsonMatch[0];
+          
+          // Count open/close braces and brackets to fix incomplete JSON
+          const openBrackets = (fixedJson.match(/\[/g) || []).length;
+          const closeBrackets = (fixedJson.match(/\]/g) || []).length;
+          const openBraces = (fixedJson.match(/\{/g) || []).length;
+          const closeBraces = (fixedJson.match(/\}/g) || []).length;
+          
+          // Try to close incomplete objects
+          if (openBraces > closeBraces) {
+            // Find the last complete object by looking for the last "},"
+            const lastCompleteObj = fixedJson.lastIndexOf('},');
+            if (lastCompleteObj !== -1) {
+              fixedJson = fixedJson.substring(0, lastCompleteObj + 1) + ']';
+            } else {
+              // Close remaining braces and brackets
+              fixedJson += '}'.repeat(openBraces - closeBraces);
+              fixedJson += ']'.repeat(openBrackets - closeBrackets);
+            }
+          } else if (openBrackets > closeBrackets) {
+            fixedJson += ']'.repeat(openBrackets - closeBrackets);
+          }
+          
+          try {
+            voters = JSON.parse(fixedJson);
+          } catch {
+            // Last resort: extract complete objects only
+            const objectMatches = jsonContent.match(/\{[^{}]*(?:"sl"|"voter_no"|"name_bn")[^{}]*\}/g);
+            if (objectMatches && objectMatches.length > 0) {
+              voters = objectMatches.map(obj => {
+                try { return JSON.parse(obj); } catch { return null; }
+              }).filter(Boolean);
+            } else {
+              throw new Error("Could not parse incomplete JSON");
+            }
+          }
+        }
       } else {
-        voters = JSON.parse(cleanContent);
+        voters = JSON.parse(jsonContent);
       }
     } catch (parseError) {
       console.error("JSON parse error:", parseError, "Content:", content);
       return jsonResponse(
-        { error: "AI response parse করতে সমস্যা হয়েছে", rawContent: content, model: usedModel, debugVersion: DEBUG_VERSION },
+        { error: "AI response parse করতে সমস্যা হয়েছে", rawContent: content.slice(0, 1000), model: usedModel, debugVersion: DEBUG_VERSION },
         422,
       );
     }
