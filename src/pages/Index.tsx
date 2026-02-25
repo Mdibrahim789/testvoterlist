@@ -170,7 +170,7 @@ const Index = () => {
 
       {/* Footer */}
       <footer className="py-4 text-center text-sm text-muted-foreground">
-        <p>© ২০২৫ ভোটার অনুসন্ধান সিস্টেম</p>
+        <p>© ২০২৬ ভোটার অনুসন্ধান সিস্টেম</p>
       </footer>
     </div>
   );

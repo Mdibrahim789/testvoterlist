@@ -88,15 +88,26 @@ export function VoterSearchTabs({
               onChange={(e) => setVoterNo(e.target.value)}
               className="border-0 border-b-2 border-border rounded-none bg-transparent text-center text-lg py-3 focus:border-primary focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground/60"
             />
-            <Button
-              type="submit"
-              size="lg"
-              className="w-full h-12 text-lg font-semibold"
-              disabled={isLoading || !voterNo.trim()}
-            >
-              <Search className="w-5 h-5 mr-2" />
-              {isLoading ? 'খুঁজছি...' : 'সার্চ করুন'}
-            </Button>
+            <div className="flex gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                size="lg"
+                className="flex-1 h-12"
+                onClick={handleReset}
+              >
+                রিসেট
+              </Button>
+              <Button
+                type="submit"
+                size="lg"
+                className="flex-1 h-12 text-lg font-semibold"
+                disabled={isLoading || !voterNo.trim()}
+              >
+                <Search className="w-5 h-5 mr-2" />
+                {isLoading ? 'খুঁজছি...' : 'সার্চ করুন'}
+              </Button>
+            </div>
           </form>
         )}
 
