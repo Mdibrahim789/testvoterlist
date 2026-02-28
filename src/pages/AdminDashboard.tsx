@@ -50,6 +50,7 @@ import {
   Users,
   Clock,
   MapPin,
+  Plus,
 } from 'lucide-react';
 
 export default function AdminDashboard() {
@@ -68,6 +69,7 @@ export default function AdminDashboard() {
   const [searchTerm, setSearchTerm] = useState('');
   const [editingVoter, setEditingVoter] = useState<Voter | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   
   // Filter state
   const [filterUpazila, setFilterUpazila] = useState('all');
@@ -185,6 +187,63 @@ export default function AdminDashboard() {
       toast({
         title: 'সমস্যা হয়েছে',
         description: 'তথ্য আপডেট করতে সমস্যা হয়েছে',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleOpenAdd = () => {
+    setFormData({
+      sl: '',
+      voter_no: '',
+      name_bn: '',
+      father_husband: '',
+      dob: '',
+      address: '',
+      area: '',
+      upazila: '',
+      ward_union: '',
+    });
+    setIsAddDialogOpen(true);
+  };
+
+  const handleAddVoter = async () => {
+    if (!formData.voter_no || !formData.name_bn) {
+      toast({
+        title: 'সমস্যা হয়েছে',
+        description: 'ভোটার নং এবং নাম আবশ্যক',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      const { error } = await supabase.from('voters').insert({
+        sl: formData.sl ? parseInt(formData.sl, 10) : null,
+        voter_no: formData.voter_no,
+        name_bn: formData.name_bn,
+        father_husband: formData.father_husband || null,
+        dob: formData.dob || null,
+        address: formData.address || null,
+        area: formData.area || null,
+        upazila: formData.upazila || null,
+        ward_union: formData.ward_union || null,
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: 'সফল হয়েছে!',
+        description: 'নতুন ভোটার যোগ করা হয়েছে',
+      });
+
+      setIsAddDialogOpen(false);
+      fetchVoters();
+    } catch (err) {
+      console.error('Add voter error:', err);
+      toast({
+        title: 'সমস্যা হয়েছে',
+        description: 'ভোটার যোগ করতে সমস্যা হয়েছে',
         variant: 'destructive',
       });
     }
@@ -465,18 +524,24 @@ export default function AdminDashboard() {
             <CardHeader>
               <div className="flex flex-col gap-4">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                  <CardTitle className="flex items-center gap-2">
+                   <CardTitle className="flex items-center gap-2">
                     <Users className="w-5 h-5" />
                     ভোটার তালিকা
                   </CardTitle>
-                  <div className="relative w-full md:w-64">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <Input
-                      placeholder="নাম বা ভোটার নং দিয়ে খুঁজুন..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-9"
-                    />
+                  <div className="flex items-center gap-2">
+                    <Button size="sm" onClick={handleOpenAdd}>
+                      <Plus className="w-4 h-4 mr-2" />
+                      নতুন ভোটার
+                    </Button>
+                    <div className="relative w-64">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Input
+                        placeholder="নাম বা ভোটার নং দিয়ে খুঁজুন..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="pl-9"
+                      />
+                    </div>
                   </div>
                 </div>
                 
@@ -589,6 +654,99 @@ export default function AdminDashboard() {
           </Card>
         </div>
       </main>
+
+      {/* Add Voter Dialog */}
+      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>নতুন ভোটার যোগ করুন</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="add-sl">ক্রমিক নং</Label>
+                <Input
+                  id="add-sl"
+                  value={formData.sl}
+                  onChange={(e) => setFormData({ ...formData, sl: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="add-voter-no">ভোটার নং *</Label>
+                <Input
+                  id="add-voter-no"
+                  value={formData.voter_no}
+                  onChange={(e) => setFormData({ ...formData, voter_no: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="add-name">নাম (বাংলায়) *</Label>
+              <Input
+                id="add-name"
+                value={formData.name_bn}
+                onChange={(e) => setFormData({ ...formData, name_bn: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="add-father">পিতা/স্বামীর নাম</Label>
+              <Input
+                id="add-father"
+                value={formData.father_husband}
+                onChange={(e) => setFormData({ ...formData, father_husband: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="add-dob">জন্ম তারিখ</Label>
+              <Input
+                id="add-dob"
+                value={formData.dob}
+                onChange={(e) => setFormData({ ...formData, dob: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="add-address">ঠিকানা</Label>
+              <Input
+                id="add-address"
+                value={formData.address}
+                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="add-upazila">উপজেলা</Label>
+                <Input
+                  id="add-upazila"
+                  value={formData.upazila}
+                  onChange={(e) => setFormData({ ...formData, upazila: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="add-ward">ওয়ার্ড/ইউনিয়ন</Label>
+                <Input
+                  id="add-ward"
+                  value={formData.ward_union}
+                  onChange={(e) => setFormData({ ...formData, ward_union: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="add-area">এলাকা</Label>
+              <Input
+                id="add-area"
+                value={formData.area}
+                onChange={(e) => setFormData({ ...formData, area: e.target.value })}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+              বাতিল
+            </Button>
+            <Button onClick={handleAddVoter}>যোগ করুন</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Edit Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
