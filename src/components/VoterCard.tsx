@@ -1,13 +1,14 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { User, Calendar, MapPin, CreditCard, Hash } from 'lucide-react';
 import { Voter } from '@/types/database';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface VoterCardProps {
   voter: Voter;
 }
 
 export function VoterCard({ voter }: VoterCardProps) {
-  // Mask voter number - show only last 4 digits
+  const { t } = useLanguage();
   const maskedVoterNo = voter.voter_no 
     ? '••••••••' + voter.voter_no.slice(-4) 
     : 'N/A';
@@ -25,7 +26,7 @@ export function VoterCard({ voter }: VoterCardProps) {
             </h3>
             {voter.father_husband && (
               <p className="text-sm text-muted-foreground">
-                পিতা/স্বামী: {voter.father_husband}
+                {t('voter.fatherHusband')}: {voter.father_husband}
               </p>
             )}
           </div>
@@ -35,20 +36,20 @@ export function VoterCard({ voter }: VoterCardProps) {
           {voter.sl && (
             <div className="flex items-center gap-2 text-muted-foreground">
               <Hash className="w-4 h-4" />
-              <span>ক্রমিক নং: {voter.sl}</span>
+              <span>{t('voter.serial')}: {voter.sl}</span>
             </div>
           )}
 
           {voter.dob && (
             <div className="flex items-center gap-2 text-muted-foreground">
               <Calendar className="w-4 h-4" />
-              <span>জন্ম তারিখ: {voter.dob}</span>
+              <span>{t('voter.dob')}: {voter.dob}</span>
             </div>
           )}
           
           <div className="flex items-center gap-2 text-muted-foreground">
             <CreditCard className="w-4 h-4" />
-            <span>ভোটার নং: {maskedVoterNo}</span>
+            <span>{t('voter.voterNo')}: {maskedVoterNo}</span>
           </div>
 
           {voter.address && (
