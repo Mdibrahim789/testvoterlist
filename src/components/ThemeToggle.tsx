@@ -38,9 +38,9 @@ export default function ThemeToggle() {
       aria-label="Toggle color theme"
       title={isDark ? "Switch to light" : "Switch to dark"}
       onClick={() => setIsDark(!isDark)}
-      className="fixed right-4 bottom-4 z-50 inline-flex items-center justify-center rounded-full bg-card p-2 shadow-md hover:opacity-90 focus:outline-none"
+      className="fixed right-4 bottom-4 z-50 inline-flex items-center justify-center rounded-full bg-primary text-primary-foreground p-2 shadow-lg hover:opacity-90 focus:outline-none transition-transform duration-200"
     >
-      {isDark ? <SunIcon /> : <MoonIcon />}
+        {isDark ? <SunIcon className="w-5 h-5 text-primary-foreground" /> : <MoonIcon className="w-5 h-5 text-primary-foreground" />}
     </button>
   );
 }
