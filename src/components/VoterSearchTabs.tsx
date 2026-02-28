@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface VoterSearchTabsProps {
   onVoterNoSearch: (voterNo: string) => void;
@@ -22,6 +23,7 @@ export function VoterSearchTabs({
   const [voterNo, setVoterNo] = useState('');
   const [dob, setDob] = useState('');
   const [name, setName] = useState('');
+  const { t } = useLanguage();
 
   const handleVoterNoSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,12 +47,10 @@ export function VoterSearchTabs({
   return (
     <Card className="bg-white shadow-xl border-0 rounded-2xl overflow-hidden">
       <CardContent className="p-6 md:p-8">
-        {/* Title */}
         <h2 className="text-2xl font-bold text-center text-primary mb-6">
-          ভোটার অনুসন্ধান
+          {t('search.title')}
         </h2>
 
-        {/* Tab Buttons */}
         <div className="flex bg-muted rounded-full p-1 mb-6">
           <button
             type="button"
@@ -62,7 +62,7 @@ export function VoterSearchTabs({
                 : "text-muted-foreground hover:text-foreground"
             )}
           >
-            ভোটার নং
+            {t('search.voterNo')}
           </button>
           <button
             type="button"
@@ -74,16 +74,15 @@ export function VoterSearchTabs({
                 : "text-muted-foreground hover:text-foreground"
             )}
           >
-            নাম/জন্ম তারিখ
+            {t('search.nameDob')}
           </button>
         </div>
 
-        {/* Voter No Search Form */}
         {activeTab === 'voterNo' && (
           <form onSubmit={handleVoterNoSubmit} className="space-y-6">
             <Input
               type="text"
-              placeholder="ভোটার নম্বর লিখুন"
+              placeholder={t('search.voterNoPlaceholder')}
               value={voterNo}
               onChange={(e) => setVoterNo(e.target.value)}
               className="border-0 border-b-2 border-border rounded-none bg-transparent text-center text-lg py-3 focus:border-primary focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground/60"
@@ -95,22 +94,19 @@ export function VoterSearchTabs({
               disabled={isLoading || !voterNo.trim()}
             >
               <Search className="w-5 h-5 mr-2" />
-              {isLoading ? 'খুঁজছি...' : 'সার্চ করুন'}
+              {isLoading ? t('search.searching') : t('search.searchBtn')}
             </Button>
           </form>
         )}
 
-        {/* Name/DOB Search Form */}
         {activeTab === 'nameDob' && (
           <form onSubmit={handleNameDobSubmit} className="space-y-4">
             <Input
               type="text"
-              placeholder="জন্ম তারিখ (DD-MM-YYYY)"
+              placeholder={t('search.dobPlaceholder')}
               value={dob}
               onChange={(e) => {
-                // Allow both English (0-9) and Bangla (০-৯) numerals plus hyphen
                 let value = e.target.value.replace(/[^0-9০-৯-]/g, '');
-                // Auto-add hyphen after day (2 digits) and month (5 chars = DD-MM)
                 const digitCount = value.replace(/-/g, '').length;
                 const hyphens = (value.match(/-/g) || []).length;
                 
@@ -122,7 +118,6 @@ export function VoterSearchTabs({
                     value = value + '-';
                   }
                 }
-                // Limit to 10 chars (DD-MM-YYYY)
                 if (value.length <= 10) {
                   setDob(value);
                 }
@@ -132,7 +127,7 @@ export function VoterSearchTabs({
             />
             <Input
               type="text"
-              placeholder="নাম (বাংলায়)"
+              placeholder={t('search.namePlaceholder')}
               value={name}
               onChange={(e) => setName(e.target.value)}
               className="border-0 border-b-2 border-border rounded-none bg-transparent text-lg py-3 focus:border-primary focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground/60"
@@ -145,7 +140,7 @@ export function VoterSearchTabs({
                 className="flex-1 h-12"
                 onClick={handleReset}
               >
-                রিসেট
+                {t('search.reset')}
               </Button>
               <Button
                 type="submit"
@@ -154,7 +149,7 @@ export function VoterSearchTabs({
                 disabled={isLoading || (!dob && !name.trim())}
               >
                 <Search className="w-5 h-5 mr-2" />
-                {isLoading ? 'খুঁজছি...' : 'সার্চ'}
+                {isLoading ? t('search.searching') : t('search.searchShort')}
               </Button>
             </div>
           </form>
