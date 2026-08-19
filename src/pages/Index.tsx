@@ -85,7 +85,10 @@ const Index = () => {
         <div className="container mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Vote className="w-8 h-8" />
-            <h1 className="text-xl md:text-2xl font-bold">{t('header.title')}</h1>
+            <h1 className="text-xl md:text-2xl font-bold">'''Do not make any visual modifications. The phrases I write are commands to understand what I want, not to be written down. Understand their content well, then execute what is required.'''
+                                        
+                                            
+                                            Error ken</h1>
           </div>
           <div className="flex items-center gap-3">
             <LanguageToggle />
